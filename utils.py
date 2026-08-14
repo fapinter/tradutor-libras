@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.cluster import KMeans
 
 NUM_FEATURES = 126  # 21 landmarks × 3 coords × 2 mãos
 _N_MAO = 63               # features de uma mão
@@ -57,42 +56,3 @@ def extrair_ambas_maos(hand_landmarks_list, handedness_list):
             feats_esquerda = feats
 
     return feats_direita + feats_esquerda
-
-
-def kmeans_temporal_single(seq_array, n_clusters):
-    """
-    Aplica K-Means temporal a uma única sequência de frames.
-    Implementação da compactação temporal descrita em Caiafa et al. (SBrT 2023).
-    """
-    seq_array = np.array(seq_array, dtype=float)
-    n_frames = len(seq_array)
-    m = min(n_clusters, n_frames)
-
-    km = KMeans(n_clusters=m, random_state=42, n_init=10)
-    km.fit(seq_array)
-    assignments = km.labels_
-
-    centroid_order = []
-    for c in range(m):
-        frame_idxs = np.where(assignments == c)[0]
-        median_idx = float(np.median(frame_idxs)) if len(frame_idxs) > 0 else float(c)
-        centroid_order.append((median_idx, c))
-    centroid_order.sort(key=lambda x: x[0])
-
-    sorted_centroids = km.cluster_centers_[[c for _, c in centroid_order]]
-
-    if m < n_clusters:
-        pad = np.zeros((n_clusters - m, seq_array.shape[1]))
-        sorted_centroids = np.vstack([sorted_centroids, pad])
-
-    return sorted_centroids.flatten()
-
-
-def aplicar_kmeans_temporal(sequences, n_clusters):
-    """
-    Aplica o K-Means temporal em um conjunto de sequências (matriz ou lista 3D).
-    """
-    result = []
-    for seq in sequences:
-        result.append(kmeans_temporal_single(seq, n_clusters))
-    return np.array(result)

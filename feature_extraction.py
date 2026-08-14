@@ -3,7 +3,7 @@ import re
 import mediapipe as mp
 import pandas as pd
 import numpy as np
-from utils import extrair_ambas_maos as _extrair_ambas_maos, normalizar_mao as _normalizar_mao, NUM_FEATURES
+from utils import extrair_ambas_maos, NUM_FEATURES
 
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
@@ -32,12 +32,7 @@ def _listar_frames(directory):
 def _video_dirs_de_classe(class_dir):
     """
     Retorna os diretórios de vídeo para uma classe.
-
-    Novo formato (1 subpasta por vídeo): class_dir/v0000/, class_dir/v0001/, ...
-    Formato legado (frames direto na pasta): class_dir/frame_0.jpg, ...
-
-    A separação por subpasta é necessária para evitar que janelas LSTM
-    cruzem a fronteira entre vídeos diferentes.
+    Subpastas por vídeo: class_dir/v0000/, class_dir/v0001/, ...
     """
     subdirs = sorted([
         os.path.join(class_dir, d)
@@ -56,21 +51,9 @@ def extract_features_from_directory(
     export_dataframe=False,
 ):
     """
-    Varre os diretórios de imagens e extrai coordenadas normalizadas de AMBAS as mãos.
+    Varre os diretórios de imagens e extrai sequências 3D de coordenadas normalizadas de AMBAS as mãos para o LSTM.
 
-    Retorna features com 126 features por frame (63 mão direita + 63 mão esquerda).
-    Mão não detectada → 63 zeros naquele bloco.
-
-    Parâmetros
-    ----------
-    mode : "rf" → 2D (amostras, 126) | "lstm" → 3D (amostras, frames, 126)
-    step : passo da janela deslizante (padrão 1 → máximo de sequências por vídeo)
-    export_dataframe : salva CSV em ./dataset/
-
-    Sobre augmentation
-    ------------------
-    Não é feita aqui. Ocorre dentro de train_* (model_training.py) APÓS o split,
-    evitando data leakage. O CSV exportado contém apenas dados originais.
+    Retorna features 3D no formato: (amostras, frames, 126_features).
     """
     features = []
     labels = []
@@ -108,61 +91,51 @@ def extract_features_from_directory(
                         results = landmarker.detect(mp_image)
 
                         if results.hand_landmarks:
-                            landmarks = _extrair_ambas_maos(
+                            landmarks = extrair_ambas_maos(
                                 results.hand_landmarks,
                                 results.handedness,
                             )
                             ultimo_valido = landmarks
-
-                            if mode == "rf":
-                                features.append(landmarks)
-                                labels.append(label_name)
-                            else:
-                                video_landmarks.append(landmarks)
+                            video_landmarks.append(landmarks)
                         else:
                             # Forward-fill com o último frame válido
-                            if mode == "lstm":
-                                video_landmarks.append(ultimo_valido)
+                            video_landmarks.append(ultimo_valido)
 
                     except Exception as e:
                         print(f"Erro ao processar {image_path}: {e}")
 
-                if mode == "lstm":
-                    # Back-fill em frames iniciais sem detecção utilizando a primeira mão válida encontrada
-                    primeira_valida = next((lm for lm in video_landmarks if any(lm)), None)
-                    if primeira_valida is not None:
-                        for idx_lm in range(len(video_landmarks)):
-                            if not any(video_landmarks[idx_lm]):
-                                video_landmarks[idx_lm] = primeira_valida
-                            else:
-                                break
+                # Back-fill em frames iniciais sem detecção utilizando a primeira mão válida encontrada
+                primeira_valida = next((lm for lm in video_landmarks if any(lm)), None)
+                if primeira_valida is not None:
+                    for idx_lm in range(len(video_landmarks)):
+                        if not any(video_landmarks[idx_lm]):
+                            video_landmarks[idx_lm] = primeira_valida
+                        else:
+                            break
 
-                    for i in range(0, len(video_landmarks) - sequence_length + 1, step):
-                        features.append(video_landmarks[i: i + sequence_length])
-                        labels.append(label_name)
-                        sequencias_classe += 1
+                for i in range(0, len(video_landmarks) - sequence_length + 1, step):
+                    features.append(video_landmarks[i: i + sequence_length])
+                    labels.append(label_name)
+                    sequencias_classe += 1
 
-            if mode == "lstm":
-                if sequencias_classe == 0:
-                    print(
-                        f"  AVISO: '{label_name}' gerou 0 sequências. "
-                        f"Verifique se os vídeos têm >= {sequence_length} frames detectáveis."
-                    )
-                else:
-                    print(f"  -> {sequencias_classe} sequência(s) para '{label_name}'")
+            if sequencias_classe == 0:
+                print(
+                    f"  AVISO: '{label_name}' gerou 0 sequências. "
+                    f"Verifique se os vídeos têm >= {sequence_length} frames detectáveis."
+                )
+            else:
+                print(f"  -> {sequencias_classe} sequência(s) para '{label_name}'")
 
-    print(f"\nExtração concluída! Total ({mode}): {len(features)} amostras, {NUM_FEATURES} features/frame")
+    print(f"\nExtração concluída! Total (LSTM): {len(features)} amostras, {NUM_FEATURES} features/frame")
 
     if export_dataframe:
-        _exportar_csv(features, labels, mode)
+        _exportar_csv(features, labels)
 
     return features, labels
 
 
-def _exportar_csv(features, labels, mode):
-    """Salva o dataset em CSV."""
-    # Colunas: d_x_1, d_y_1, d_z_1, ..., d_x_21, d_y_21, d_z_21,
-    #          e_x_1, e_y_1, e_z_1, ..., e_x_21, e_y_21, e_z_21
+def _exportar_csv(features, labels):
+    """Salva o dataset em CSV para LSTM."""
     coord_cols = []
     for prefixo in ('d', 'e'):  # d = direita, e = esquerda
         for i in range(1, 22):
@@ -170,30 +143,21 @@ def _exportar_csv(features, labels, mode):
 
     os.makedirs('./dataset', exist_ok=True)
 
-    if mode == 'rf':
-        df = pd.DataFrame(features, columns=coord_cols)
-        df.insert(0, 'target', labels)
+    print(f'Exportando {len(labels)} amostras...')
+    rows = []
+    for sample_idx, (seq, label) in enumerate(zip(features, labels)):
+        for frame_idx, frame in enumerate(seq):
+            row = [label, sample_idx, frame_idx] + list(frame)
+            rows.append(row)
+    all_cols = ['target', 'sample_idx', 'frame_idx'] + coord_cols
+    df = pd.DataFrame(rows, columns=all_cols)
 
-    elif mode == 'lstm':
-        print(f'Exportando {len(labels)} amostras...')
-        rows = []
-        for sample_idx, (seq, label) in enumerate(zip(features, labels)):
-            for frame_idx, frame in enumerate(seq):
-                row = [label, sample_idx, frame_idx] + list(frame)
-                rows.append(row)
-        all_cols = ['target', 'sample_idx', 'frame_idx'] + coord_cols
-        df = pd.DataFrame(rows, columns=all_cols)
-
-    output_path = f'./dataset/dataset_completo_{mode}.csv'
+    output_path = './dataset/dataset_completo_lstm.csv'
     df.to_csv(output_path, index=False)
     print(f'Dataset exportado: {output_path}')
 
 
 if __name__ == "__main__":
     dataset_root = "dataset/frames_treino"
-
-    print("=== Modo LSTM ===")
+    print("=== Extração de Features para LSTM ===")
     extract_features_from_directory(dataset_root_dir=dataset_root, mode='lstm', export_dataframe=True)
-
-    print("\n=== Modo RF/KNN ===")
-    extract_features_from_directory(dataset_root_dir=dataset_root, mode='rf', export_dataframe=True)
