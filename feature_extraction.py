@@ -1,29 +1,32 @@
 import os
 import re
+
 import mediapipe as mp
-import pandas as pd
 import numpy as np
-from utils import extrair_ambas_maos, NUM_FEATURES
+import pandas as pd
+
+from utils import NUM_FEATURES, extrair_ambas_maos
 
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
 HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
 
-_N_MAO = 63               # features de uma mão
+_N_MAO = 63  # features de uma mão
 _ZEROS_MAO = [0.0] * _N_MAO  # placeholder para mão ausente
 
 
 def _extrair_numero_frame(filename):
-    matches = re.findall(r'\d+', filename)
+    matches = re.findall(r"\d+", filename)
     return int(matches[0]) if matches else 0
 
 
 def _listar_frames(directory):
     """Retorna lista de imagens ordenada numericamente de forma robusta."""
     file_names = [
-        f for f in os.listdir(directory)
-        if f.lower().endswith(('.png', '.jpg', '.jpeg'))
+        f
+        for f in os.listdir(directory)
+        if f.lower().endswith((".png", ".jpg", ".jpeg"))
     ]
     file_names.sort(key=_extrair_numero_frame)
     return file_names
@@ -34,11 +37,13 @@ def _video_dirs_de_classe(class_dir):
     Retorna os diretórios de vídeo para uma classe.
     Subpastas por vídeo: class_dir/v0000/, class_dir/v0001/, ...
     """
-    subdirs = sorted([
-        os.path.join(class_dir, d)
-        for d in os.listdir(class_dir)
-        if os.path.isdir(os.path.join(class_dir, d))
-    ])
+    subdirs = sorted(
+        [
+            os.path.join(class_dir, d)
+            for d in os.listdir(class_dir)
+            if os.path.isdir(os.path.join(class_dir, d))
+        ]
+    )
     return subdirs if subdirs else [class_dir]
 
 
@@ -61,7 +66,7 @@ def extract_features_from_directory(
     options = HandLandmarkerOptions(
         base_options=BaseOptions(model_asset_path=model_asset_path),
         running_mode=VisionRunningMode.IMAGE,
-        num_hands=2,   # detectar até 2 mãos por frame
+        num_hands=2,  # detectar até 2 mãos por frame
     )
 
     with HandLandmarker.create_from_options(options) as landmarker:
@@ -114,7 +119,7 @@ def extract_features_from_directory(
                             break
 
                 for i in range(0, len(video_landmarks) - sequence_length + 1, step):
-                    features.append(video_landmarks[i: i + sequence_length])
+                    features.append(video_landmarks[i : i + sequence_length])
                     labels.append(label_name)
                     sequencias_classe += 1
 
@@ -126,7 +131,9 @@ def extract_features_from_directory(
             else:
                 print(f"  -> {sequencias_classe} sequência(s) para '{label_name}'")
 
-    print(f"\nExtração concluída! Total (LSTM): {len(features)} amostras, {NUM_FEATURES} features/frame")
+    print(
+        f"\nExtração concluída! Total (LSTM): {len(features)} amostras, {NUM_FEATURES} features/frame"
+    )
 
     if export_dataframe:
         _exportar_csv(features, labels)
@@ -137,27 +144,60 @@ def extract_features_from_directory(
 def _exportar_csv(features, labels):
     """Salva o dataset em CSV para LSTM."""
     coord_cols = []
-    for prefixo in ('d', 'e'):  # d = direita, e = esquerda
+    for prefixo in ("d", "e"):  # d = direita, e = esquerda
         for i in range(1, 22):
-            coord_cols += [f'{prefixo}_x_{i}', f'{prefixo}_y_{i}', f'{prefixo}_z_{i}']
+            coord_cols += [f"{prefixo}_x_{i}", f"{prefixo}_y_{i}", f"{prefixo}_z_{i}"]
 
-    os.makedirs('./dataset', exist_ok=True)
+    os.makedirs("./dataset", exist_ok=True)
 
-    print(f'Exportando {len(labels)} amostras...')
+    print(f"Exportando {len(labels)} amostras...")
     rows = []
     for sample_idx, (seq, label) in enumerate(zip(features, labels)):
         for frame_idx, frame in enumerate(seq):
             row = [label, sample_idx, frame_idx] + list(frame)
             rows.append(row)
-    all_cols = ['target', 'sample_idx', 'frame_idx'] + coord_cols
+    all_cols = ["target", "sample_idx", "frame_idx"] + coord_cols
     df = pd.DataFrame(rows, columns=all_cols)
 
-    output_path = './dataset/dataset_completo_lstm.csv'
+    output_path = "./dataset/dataset_completo_lstm.csv"
     df.to_csv(output_path, index=False)
-    print(f'Dataset exportado: {output_path}')
+    print(f"Dataset exportado: {output_path}")
+
+
+def import_from_csv(filepath: str, mode: str = "lstm"):
+    """
+    Carrega o dataset a partir de um CSV no formato 3D para o modelo LSTM: (amostras, frames, features).
+    """
+    df = pd.read_csv(filepath)
+
+    feature_cols = [
+        col for col in df.columns if col not in ["target", "frame_idx", "sample_idx"]
+    ]
+    unique_samples = df["sample_idx"].unique()
+    num_samples = len(unique_samples)
+    num_frames = df["frame_idx"].nunique()
+    num_features = len(feature_cols)
+
+    features = np.zeros((num_samples, num_frames, num_features))
+    labels = []
+
+    for i, (sample_id, df_sample) in enumerate(df.groupby("sample_idx", sort=False)):
+        df_sample = df_sample.sort_values(by="frame_idx")
+
+        landmarks_matrix = df_sample[feature_cols].values
+        t_real = landmarks_matrix.shape[0]
+        features[i, :t_real, :] = landmarks_matrix
+
+        sample_label = df_sample["target"].iloc[0]
+        labels.append(sample_label)
+
+    labels = np.array(labels)
+    return features, labels
 
 
 if __name__ == "__main__":
     dataset_root = "dataset/frames_treino"
     print("=== Extração de Features para LSTM ===")
-    extract_features_from_directory(dataset_root_dir=dataset_root, mode='lstm', export_dataframe=True)
+    extract_features_from_directory(
+        dataset_root_dir=dataset_root, mode="lstm", export_dataframe=True
+    )
