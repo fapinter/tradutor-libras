@@ -9,8 +9,7 @@ os.makedirs('logs', exist_ok=True)
 
 from data_preprocessing import extrair_dataset_completo
 from model_training import train_lstm
-from feature_extraction import extract_features_from_directory
-from import_from_csv import import_from_csv
+from feature_extraction import extract_features_from_directory, import_from_csv
 
 
 def _salvar_log_treino(acuracia, n_amostras, augmentar, n_aumentos):
@@ -59,25 +58,46 @@ def _perguntar_augmentation():
 
 def gerar_dataset_csv():
     """Gera e salva o dataset SEM augmentation (dados originais puros) para o LSTM."""
-    dataset_root = "dataset/frames_treino"
     print("\n--- GERAR DATASET LSTM (FEATURES ORIGINAIS) ---")
-    csv_path = "dataset/dataset_completo_lstm.csv"
+    print("[1] Treino (dataset/frames_treino -> dataset/dataset_completo_lstm.csv)")
+    print("[2] Teste (dataset/frames_teste -> dataset/dataset_teste_lstm.csv)")
+    print("[3] Ambos")
+    opcao = input("Escolha uma opção (1, 2 ou 3) [padrão: 1]: ").strip() or "1"
 
-    if os.path.exists(csv_path):
-        print(f"\n⚠️  AVISO: O arquivo {csv_path} já existe!")
-        confirmacao = input("Deseja SOBRESCREVER com novos dados? (s/n): ").strip().lower()
-        if confirmacao != 's':
-            print("Operação cancelada.")
-            return
+    alvos = []
+    if opcao == '1':
+        alvos.append(("dataset/frames_treino", "dataset/dataset_completo_lstm.csv", "Treino"))
+    elif opcao == '2':
+        alvos.append(("dataset/frames_teste", "dataset/dataset_teste_lstm.csv", "Teste"))
+    elif opcao == '3':
+        alvos.append(("dataset/frames_treino", "dataset/dataset_completo_lstm.csv", "Treino"))
+        alvos.append(("dataset/frames_teste", "dataset/dataset_teste_lstm.csv", "Teste"))
+    else:
+        print("Opção inválida.")
+        return
 
-    print("\nExtração no modo LSTM (sem augmentation — ocorre no treino)...")
-    extract_features_from_directory(
-        dataset_root,
-        mode="lstm",
-        export_dataframe=True,
-    )
-    print(f"\n[OK] Dataset salvo em '{csv_path}'!")
-    print("DICA: ao treinar com este CSV, escolha 'usar augmentation' para dados mais robustos.")
+    for dataset_root, csv_path, rotulo in alvos:
+        print(f"\n--- Processando conjunto de {rotulo.upper()} ---")
+        if not os.path.exists(dataset_root):
+            print(f"⚠️  Diretório '{dataset_root}' não encontrado.")
+            print(f"Dica: Execute a opção [2] do menu principal para extrair os frames primeiro.")
+            continue
+
+        if os.path.exists(csv_path):
+            print(f"\n⚠️  AVISO: O arquivo {csv_path} já existe!")
+            confirmacao = input(f"Deseja SOBRESCREVER '{csv_path}'? (s/n): ").strip().lower()
+            if confirmacao != 's':
+                print(f"Extração de {rotulo} cancelada.")
+                continue
+
+        print(f"\nExtraindo features de '{dataset_root}'...")
+        extract_features_from_directory(
+            dataset_root,
+            mode="lstm",
+            export_dataframe=True,
+            output_csv_path=csv_path,
+        )
+        print(f"[OK] Dataset de {rotulo} salvo em '{csv_path}'!")
 
 
 def executar_treinamento():

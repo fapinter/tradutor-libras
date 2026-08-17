@@ -1,33 +1,80 @@
 import cv2
 import os
+import re
+import unicodedata
+
+
+def normalizar_label_video(nome_arquivo_ou_pasta):
+    """
+    Normaliza o nome do gesto a partir do nome do arquivo ou pasta:
+    - Remove extensão (.mp4, etc.)
+    - Remove sufixos como '_Articulador3', '_1', etc.
+    - Remove acentos ('ç' -> 'c', 'é' -> 'e', etc.)
+    - Converte para minúsculas e substitui espaços por hifens.
+    Ex: 'Computador portátil_Articulador3.mp4' -> 'computador-portatil'
+        'Abraço_Articulador3.mp4' -> 'abraco'
+    """
+    nome = os.path.splitext(nome_arquivo_ou_pasta)[0]
+    nome = re.sub(r'_[Aa]rticulador\w*', '', nome)
+    nfkd = unicodedata.normalize('NFKD', nome)
+    sem_acento = ''.join([c for c in nfkd if not unicodedata.combining(c)])
+    limpo = sem_acento.strip().lower()
+    limpo = re.sub(r'[\s_]+', '-', limpo)
+    return limpo
 
 
 def extrair_dataset_completo(pasta_videos, pasta_destino_frames):
     """
     Varre a estrutura de pastas e extrai os vídeos automaticamente.
-    Ex: extrair_dataset_completo("videos/treino", "dataset/frames_treino")
+    Suporta:
+      1) Estrutura aninhada (subpastas por gesto): pasta_videos/gesto/video.mp4 (ex: videos/treino)
+      2) Estrutura plana (vídeos diretamente na pasta): pasta_videos/Gesto_ArticuladorX.mp4 (ex: videos/teste)
     """
     if not os.path.exists(pasta_videos):
         print(f"Aviso: A pasta '{pasta_videos}' nao foi encontrada.")
         return
 
-    for gesto_label in os.listdir(pasta_videos):
-        caminho_gesto = os.path.join(pasta_videos, gesto_label)
+    itens = sorted(os.listdir(pasta_videos))
+    if not itens:
+        print(f"Aviso: A pasta '{pasta_videos}' está vazia.")
+        return
 
-        if not os.path.isdir(caminho_gesto):
-            continue
+    subdirs = [d for d in itens if os.path.isdir(os.path.join(pasta_videos, d))]
+    arquivos_video = [
+        f for f in itens
+        if not os.path.isdir(os.path.join(pasta_videos, f))
+        and f.lower().endswith(('.mp4', '.avi', '.mov'))
+    ]
 
-        print(f"\nProcessando vídeos do gesto: {gesto_label}...")
+    # Caso 1: Estrutura com subdiretórios por classe (ex: videos/treino/<gesto>/<video>.mp4)
+    if subdirs:
+        for gesto_dir in subdirs:
+            caminho_gesto = os.path.join(pasta_videos, gesto_dir)
+            gesto_label = normalizar_label_video(gesto_dir)
+            print(f"\nProcessando vídeos do gesto: {gesto_label}...")
 
-        for nome_video in os.listdir(caminho_gesto):
-            if nome_video.lower().endswith(('.mp4', '.avi', '.mov')):
-                caminho_video = os.path.join(caminho_gesto, nome_video)
-                print(f" -> Extraindo: {nome_video}")
-                extract_frames(
-                    video_path=caminho_video,
-                    output_root_dir=pasta_destino_frames,
-                    gesture_label=gesto_label
-                )
+            for nome_video in sorted(os.listdir(caminho_gesto)):
+                if nome_video.lower().endswith(('.mp4', '.avi', '.mov')):
+                    caminho_video = os.path.join(caminho_gesto, nome_video)
+                    print(f" -> Extraindo: {nome_video}")
+                    extract_frames(
+                        video_path=caminho_video,
+                        output_root_dir=pasta_destino_frames,
+                        gesture_label=gesto_label
+                    )
+
+    # Caso 2: Estrutura plana com vídeos diretos na pasta (ex: videos/teste/Abacaxi_Articulador3.mp4)
+    if arquivos_video:
+        print(f"\nProcessando {len(arquivos_video)} vídeo(s) na pasta '{pasta_videos}'...")
+        for nome_video in arquivos_video:
+            caminho_video = os.path.join(pasta_videos, nome_video)
+            gesto_label = normalizar_label_video(nome_video)
+            print(f" -> Extraindo: {nome_video} (classe: '{gesto_label}')")
+            extract_frames(
+                video_path=caminho_video,
+                output_root_dir=pasta_destino_frames,
+                gesture_label=gesto_label
+            )
 
 
 def extract_frames(video_path, output_root_dir, gesture_label, frame_rate=5):

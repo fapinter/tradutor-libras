@@ -54,12 +54,17 @@ def extract_features_from_directory(
     sequence_length=20,
     step=1,
     export_dataframe=False,
+    output_csv_path=None,
 ):
     """
     Varre os diretórios de imagens e extrai sequências 3D de coordenadas normalizadas de AMBAS as mãos para o LSTM.
 
     Retorna features 3D no formato: (amostras, frames, 126_features).
     """
+    if not os.path.exists(dataset_root_dir):
+        print(f"[ERRO] Diretório '{dataset_root_dir}' não foi encontrado.")
+        return [], []
+
     features = []
     labels = []
 
@@ -136,19 +141,22 @@ def extract_features_from_directory(
     )
 
     if export_dataframe:
-        _exportar_csv(features, labels)
+        _exportar_csv(features, labels, output_path=output_csv_path)
 
     return features, labels
 
 
-def _exportar_csv(features, labels):
+def _exportar_csv(features, labels, output_path=None):
     """Salva o dataset em CSV para LSTM."""
     coord_cols = []
     for prefixo in ("d", "e"):  # d = direita, e = esquerda
         for i in range(1, 22):
             coord_cols += [f"{prefixo}_x_{i}", f"{prefixo}_y_{i}", f"{prefixo}_z_{i}"]
 
-    os.makedirs("./dataset", exist_ok=True)
+    if output_path is None:
+        output_path = "./dataset/dataset_completo_lstm.csv"
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     print(f"Exportando {len(labels)} amostras...")
     rows = []
@@ -159,7 +167,6 @@ def _exportar_csv(features, labels):
     all_cols = ["target", "sample_idx", "frame_idx"] + coord_cols
     df = pd.DataFrame(rows, columns=all_cols)
 
-    output_path = "./dataset/dataset_completo_lstm.csv"
     df.to_csv(output_path, index=False)
     print(f"Dataset exportado: {output_path}")
 
@@ -196,8 +203,49 @@ def import_from_csv(filepath: str, mode: str = "lstm"):
 
 
 if __name__ == "__main__":
-    dataset_root = "dataset/frames_treino"
-    print("=== Extração de Features para LSTM ===")
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Extração de Features de Gestos de Libras (LSTM)"
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="dataset/frames_treino",
+        help="Caminho para o diretório raiz dos frames (ex: dataset/frames_treino ou dataset/frames_teste)",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Caminho do CSV de saída (ex: dataset/dataset_completo_lstm.csv ou dataset/dataset_teste_lstm.csv)",
+    )
+    parser.add_argument(
+        "--sequence_length",
+        type=int,
+        default=20,
+        help="Tamanho da janela temporal de frames (padrão: 20)",
+    )
+    parser.add_argument(
+        "--step",
+        type=int,
+        default=1,
+        help="Passo da janela deslizante (padrão: 1)",
+    )
+    parser.add_argument(
+        "--no_export",
+        action="store_true",
+        help="Se definido, não exporta para CSV",
+    )
+
+    args = parser.parse_args()
+
+    print(f"=== Extração de Features para LSTM ({args.dataset}) ===")
     extract_features_from_directory(
-        dataset_root_dir=dataset_root, mode="lstm", export_dataframe=True
+        dataset_root_dir=args.dataset,
+        mode="lstm",
+        sequence_length=args.sequence_length,
+        step=args.step,
+        export_dataframe=not args.no_export,
+        output_csv_path=args.output,
     )

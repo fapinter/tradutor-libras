@@ -15,20 +15,20 @@ import os
 import pickle
 import sys
 import time
+
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
-import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.utils import to_categorical
 
-from feature_extraction import extract_features_from_directory
-from import_from_csv import import_from_csv
+from feature_extraction import extract_features_from_directory, import_from_csv
 from landmark_augmentation import gerar_amostras_aumentadas
 
 # --- CONFIGURAÇÕES DO PIPELINE ---
@@ -84,7 +84,9 @@ def construir_modelo_lstm(
     return model
 
 
-def carregar_dados(dataset_root="dataset/frames_treino", csv_path="dataset/dataset_completo_lstm.csv"):
+def carregar_dados(
+    dataset_root="dataset/frames_treino", csv_path="dataset/dataset_completo_lstm.csv"
+):
     """
     Carrega o dataset a partir do CSV pré-existente ou extrai diretamente dos diretórios de frames.
     """
@@ -195,7 +197,9 @@ def executar_grid_search_cv(X, y):
             y_val_true_idx = label_encoder.transform(y_val_str)
 
             acc = accuracy_score(y_val_true_idx, y_val_pred_idx)
-            f1_mac = f1_score(y_val_true_idx, y_val_pred_idx, average="macro", zero_division=0)
+            f1_mac = f1_score(
+                y_val_true_idx, y_val_pred_idx, average="macro", zero_division=0
+            )
 
             fold_accuracies.append(acc)
             fold_f1_macros.append(f1_mac)
@@ -237,7 +241,9 @@ def executar_grid_search_cv(X, y):
             f"  Params: units_1={int(row['units_1'])}, units_2={int(row['units_2'])}, "
             f"dropout={row['dropout']}, lr={row['learning_rate']}, batch={int(row['batch_size'])}"
         )
-        print(f"  F1-Macro: {row['f1_macro_mean'] * 100:.2f}% | Acurácia: {row['accuracy_mean'] * 100:.2f}%")
+        print(
+            f"  F1-Macro: {row['f1_macro_mean'] * 100:.2f}% | Acurácia: {row['accuracy_mean'] * 100:.2f}%"
+        )
         print("-" * 70)
 
     melhor_config = df_resultados.iloc[0].to_dict()
@@ -268,7 +274,9 @@ def treinar_modelo_final(X, y, melhor_config, label_encoder):
     y_final_cat = to_categorical(label_encoder.transform(y_final_str))
 
     classes_unicas = np.unique(y_final_str)
-    pesos_array = compute_class_weight("balanced", classes=classes_unicas, y=y_final_str)
+    pesos_array = compute_class_weight(
+        "balanced", classes=classes_unicas, y=y_final_str
+    )
     class_weight_dict = {
         int(label_encoder.transform([c])[0]): float(p)
         for c, p in zip(classes_unicas, pesos_array)
