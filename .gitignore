@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+MINDS/
+MALTA/
+MALTA_MINDS/
+MINDS_MALTA_CROSS/
+*.zip
