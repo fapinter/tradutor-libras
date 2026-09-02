@@ -16,7 +16,7 @@ Esta seção descreve todos os arquivos e diretórios do projeto, seu papel e, q
 - Parâmetros principais: `dataset_root_dir` (pasta raiz com subpastas por gesto), `mode` (`"rf"` ou `"lstm"`), `sequence_length` (tamanho da janela temporal, padrão 20 frames), `step` (passo da janela deslizante, padrão 1), `export_dataframe` (se `True`, salva CSV em `dataset/`).
 
 **`model_training.py`** — Treina os três modelos. Cada função (`train_random_forest`, `train_lstm`, `train_knn`) realiza internamente o split treino/teste, aplica data augmentation apenas no conjunto de treino (evitando data leakage) e salva o modelo em `models/`.
-- Parâmetros comuns: `features`, `labels`, `model_path`, `augmentar` (bool), `n_aumentos` (int, variações sintéticas por amostra), `return_accuracy` (bool).
+- Parâmetros comuns: `features`, `labels`, `LSTM_PATH`, `augmentar` (bool), `n_aumentos` (int, variações sintéticas por amostra), `return_accuracy` (bool).
 - `train_lstm` adiciona: `encoder_path` (caminho do `LabelEncoder`).
 - `train_knn` adiciona: `n_clusters` (centróides K-Means, padrão 10).
 
