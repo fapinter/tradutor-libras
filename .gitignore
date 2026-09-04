@@ -217,5 +217,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-dataset/*
-!dataset/.gitkeep
+dataset/videos/*
+dataset/frames/*
