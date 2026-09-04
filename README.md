@@ -1,6 +1,6 @@
 # Sistema de Reconhecimento de Sinais em LIBRAS
 
-Sistema de visão computacional e aprendizado de máquina para tradução automática da Língua Brasileira de Sinais (LIBRAS). O sistema detecta e reconhece gestos via webcam ou arquivo de vídeo, utilizando pontos de referência anatômicos de ambas as mãos para classificação com três modelos distintos: Random Forest, LSTM e KNN com K-Means temporal.
+Sistema de visão computacional e aprendizado de máquina para tradução automática da Língua Brasileira de Sinais (LIBRAS). O sistema detecta e reconhece gestos via webcam, utilizando pontos de referência anatômicos de ambas as mãos para classificação com três modelos distintos disponíveis: LSTM, K-Means temporal e um Ensemble de ambos.
 
 ---
 
@@ -23,8 +23,8 @@ Esta seção descreve todos os arquivos e diretórios do projeto, seu papel e, q
 **`sign_recognition.py`** — Motor de inferência. Abre um vídeo ou webcam, processa os frames com MediaPipe e retorna o gesto com maior frequência de predições (voto majoritário). Para modelos sequenciais (LSTM, KNN+K-Means), amostra 1 frame a cada 5 do vídeo original — mesmo intervalo do treinamento — garantindo correspondência temporal.
 - Parâmetros: `video_path` (caminho do arquivo ou `0` para webcam), `tipo_modelo` (`"1"` RF / `"2"` LSTM / `"3"` KNN).
 
-**`data_preprocessing.py`** — Extrai frames de vídeos MP4/AVI/MOV para imagens JPEG. Cada vídeo é salvo em uma subpasta exclusiva (`v0000/`, `v0001/`, ...) dentro de `dataset/frames_treino/<gesto>/`, evitando que múltiplos vídeos do mesmo gesto se sobreponham.
-- Parâmetros: `video_path`, `output_root_dir`, `gesture_label`, `frame_rate` (captura 1 frame a cada N frames do vídeo; padrão 5 — equivale a ~6 fps em vídeos a 30 fps).
+**`extracao_frames.py`** — Realiza o processamento dos vídeos dos datasets, capturando seus frames, salvos no diretório
+`dataset/frames/{treinamento|teste}/{gesto}/{id_video}/{id_frame}.jpg`.
 
 **`landmark_augmentation.py`** — Aplica transformações geométricas nos vetores de landmarks sem reprocessar imagens: ruído gaussiano (σ=0,005), escala uniforme (±15%), rotação 2D (±15°) e espelhamento horizontal. Para sequências LSTM, os parâmetros aleatórios são pré-gerados uma vez e aplicados igualmente a todos os frames, preservando a coerência temporal. Para gestos de duas mãos, o espelhamento também troca direita e esquerda.
 

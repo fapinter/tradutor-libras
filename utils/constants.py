@@ -78,14 +78,16 @@ ALTA_CONFIANCA = 0.6
 CONFIDENCE_THRESHOLD = 0.5
 
 # Diretórios
-VIDEOS_TREINO_DIR = "videos/treino"
-VIDEOS_TESTE_DIR = "videos/teste"
+VIDEOS_DIR = "dataset/videos"
+FRAMES_DIR = "dataset/frames"
+VIDEOS_TREINO_DIR = "dataset/videos"
+VIDEOS_TESTE_DIR = "dataset/videos"
 
-FRAMES_TREINO_DIR = "dataset/frames_treino"
-FRAMES_TESTE_DIR = "dataset/frames_teste"
+FRAMES_TREINO_DIR = "dataset/frames/treinamento"
+FRAMES_TESTE_DIR = "dataset/frames/teste"
 
-DATASET_TREINO_CSV = "dataset/dataset_completo_lstm.csv"
-DATASET_TESTE_CSV = "dataset/dataset_teste_lstm.csv"
+DATASET_TREINO_CSV = "dataset/treino.csv"
+DATASET_TESTE_CSV = "dataset/teste.csv"
 
 LOGS_DIR = "logs"
 MODELS_DIR = "models"

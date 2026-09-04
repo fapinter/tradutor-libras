@@ -13,8 +13,8 @@ from tensorflow.keras.utils import to_categorical
 from utils.constants import (
     ENCODER_PATH,
     LSTM_EPOCHS,
-    LSTM_PATIENCE,
     LSTM_PATH,
+    LSTM_PATIENCE,
     N_AUMENTOS,
     SEED,
 )

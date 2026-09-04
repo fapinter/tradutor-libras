@@ -21,7 +21,7 @@ from utils.constants import (
 
 os.makedirs(LOGS_DIR, exist_ok=True)
 
-from data_preprocessing import extrair_dataset_completo
+from extracao_frames import extrair_dataset_completo
 from feature_extraction import extract_features_from_directory, import_from_csv
 from model_training import train_lstm
 
@@ -51,18 +51,6 @@ def _salvar_log_treino(acuracia, n_amostras, augmentar,
         ])
     print(f"[LOG] Resultado salvo em '{log_path}'")
 
-
-def executar_extracao_de_frames():
-    print("\n--- EXTRACAO AUTOMATICA DE VIDEOS ---")
-    print("\n[Etapa 1/2] Extraindo pasta de TREINAMENTO...")
-    extrair_dataset_completo(VIDEOS_TREINO_DIR,
-                             FRAMES_TREINO_DIR)
-    print(
-        "\n[Etapa 2/2] Extraindo pasta de TESTE/VALIDACAO..."
-    )
-    extrair_dataset_completo(VIDEOS_TESTE_DIR,
-                             FRAMES_TESTE_DIR)
-    print("\nProcesso de extracao em lote finalizado!")
 
 
 def _perguntar_augmentation():
@@ -307,7 +295,7 @@ if __name__ == "__main__":
             executar_avaliacao_teste()
 
         elif escolha == '4':
-            executar_extracao_de_frames()
+            pass
 
         elif escolha == '5':
             gerar_dataset_csv()
