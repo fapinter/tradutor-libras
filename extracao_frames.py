@@ -16,8 +16,7 @@ from utils.constants import FRAME_RATE, FRAMES_DIR, VIDEO_EXTENSIONS, VIDEOS_DIR
 #       - {gesto}/
 #           - {minds|malta}/ (treinamento e teste respectivamente)
 #               - minds_{id_video}.mp4
-def extrair_dataset_completo(pasta_videos=VIDEOS_DIR,
-                             pasta_destino_frames=FRAMES_DIR):
+def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAMES_DIR):
     if not os.path.exists(pasta_videos):
         print(f"Aviso: A pasta '{pasta_videos}' nao foi encontrada.")
         return

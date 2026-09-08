@@ -1,4 +1,8 @@
 """
+
+DEPRECADO, REALIZANDO GRID SEARCH MANUALMENTE AO INVES DE UTILIZANDO FUNCOES DO SKLEARN
+
+
 pipeline.py
 ===========
 Pipeline completo de Treinamento, Otimização de Hiperparâmetros (Grid Search)
@@ -16,20 +20,20 @@ import pickle
 import sys
 import time
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import matplotlib.pyplot as plt
 from sklearn.metrics import (
+    ConfusionMatrixDisplay,
     accuracy_score,
+    classification_report,
+    confusion_matrix,
     f1_score,
     precision_score,
     recall_score,
-    classification_report,
-    confusion_matrix,
-    ConfusionMatrixDisplay,
 )
-from sklearn.model_selection import StratifiedKFold, StratifiedGroupKFold
+from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.callbacks import EarlyStopping
@@ -49,8 +53,8 @@ from utils.constants import (
     GRID_SEARCH_RESULTS_CSV,
     K_FOLDS,
     LOGS_DIR,
-    MATRIZ_CONFUSAO_PNG,
     LSTM_PATH,
+    MATRIZ_CONFUSAO_PNG,
     MODELS_DIR,
     N_AUMENTOS,
     OUTPUTS_DIR,
