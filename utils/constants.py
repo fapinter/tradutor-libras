@@ -11,10 +11,6 @@ ZEROS_MAO = [0.0] * N_MAO
 # Vetor de features ausente (nenhuma mão detectada)
 ZEROS_FRAME = [0.0] * NUM_FEATURES
 
-# Posição no vetor
-PULSO_INDEX = 0
-BASE_INDICADOR_INDEX = 5
-BASE_MINIMO_INDEX = 17
 
 HAND_CONNECTIONS = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5),
                     (5, 6), (6, 7), (7, 8), (5, 9), (9, 10),
@@ -26,7 +22,6 @@ HAND_CONNECTIONS = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5),
 
 VIDEO_EXTENSIONS = (".mp4", ".avi", ".mov")
 FRAME_RATE = 5
-IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
 SEQUENCE_LENGTH = 20
 DEFAULT_STEP = 5
 
@@ -46,9 +41,7 @@ AUG_ROTATION_MAX_DEGREES = 15.0
 N_AUMENTOS = 5
 
 # Configurações dos Treinamentos
-
 SEED = 42
-
 LSTM_EPOCHS = 100
 
 # Paciencia Early Stopping (avaliar qual ficará)
@@ -80,8 +73,6 @@ CONFIDENCE_THRESHOLD = 0.5
 # Diretórios
 VIDEOS_DIR = "dataset/videos"
 FRAMES_DIR = "dataset/frames"
-VIDEOS_TREINO_DIR = "dataset/videos"
-VIDEOS_TESTE_DIR = "dataset/videos"
 
 FRAMES_TREINO_DIR = "dataset/frames/treinamento"
 FRAMES_TESTE_DIR = "dataset/frames/teste"
