@@ -103,58 +103,63 @@ def construir_modelo_lstm(
     )
     return model
 
-
 def carregar_dados(
     dataset_root=FRAMES_TREINO_DIR,
     csv_path=DATASET_TREINO_CSV,
     return_groups=True,
 ):
     """
-    Carrega o dataset de treino a partir do CSV pré-existente ou extrai diretamente dos diretórios de frames.
-    Retorna features, labels e identificadores de grupos de vídeo.
+    Carrega as sequências temporais utilizadas pela LSTM.
+
+    Formato esperado:
+    X = (amostras, frames, features)
+    Exemplo: (1637, 20, 126)
+
+    groups identifica o vídeo de origem de cada sequência,
+    evitando que sequências do mesmo vídeo sejam usadas
+    simultaneamente em treino e validação.
     """
+
     if os.path.exists(csv_path):
         print(
             f"[INFO] Carregando dataset pré-gerado de '{csv_path}'..."
         )
+
+        features, labels, groups = import_from_csv(csv_path)
+
         if return_groups:
-            features, labels, groups = import_from_csv(
-                csv_path, mode="lstm", return_groups=True)
-            return np.array(features), np.array(
-                labels), np.array(groups)
-        else:
-            features, labels = import_from_csv(
-                csv_path, mode="lstm", return_groups=False)
-            return np.array(features), np.array(labels)
+            return (
+                np.array(features),
+                np.array(labels),
+                np.array(groups),
+            )
+
+        return np.array(features), np.array(labels)
 
     elif os.path.exists(dataset_root):
         print(
             f"[INFO] Extraindo features do diretório '{dataset_root}'..."
         )
-        if return_groups:
-            features, labels, groups = extract_features_from_directory(
-                dataset_root_dir=dataset_root,
-                mode="lstm",
-                export_dataframe=True,
-                output_csv_path=csv_path,
-                return_groups=True,
-            )
-            return np.array(features), np.array(
-                labels), np.array(groups)
-        else:
-            features, labels = extract_features_from_directory(
-                dataset_root_dir=dataset_root,
-                mode="lstm",
-                export_dataframe=True,
-                output_csv_path=csv_path,
-                return_groups=False,
-            )
-            return np.array(features), np.array(labels)
-    else:
-        raise FileNotFoundError(
-            f"Nem o CSV '{csv_path}' nem o diretório '{dataset_root}' foram encontrados."
+
+        features, labels, groups = extract_features_from_directory(
+            dataset_root_dir=dataset_root,
+            output_path=csv_path,
         )
 
+        if return_groups:
+            return (
+                np.array(features),
+                np.array(labels),
+                np.array(groups),
+            )
+
+        return np.array(features), np.array(labels)
+
+    else:
+        raise FileNotFoundError(
+            f"Nem o CSV '{csv_path}' nem o diretório "
+            f"'{dataset_root}' foram encontrados."
+        )
 
 def executar_grid_search_cv(X, y, groups=None):
     """
@@ -418,7 +423,6 @@ def treinar_modelo_final(X, y, melhor_config,
     )
 
     os.makedirs(MODELS_DIR, exist_ok=True)
-    LSTM_PATH = LSTM_PATH
     encoder_path = ENCODER_PATH
 
     model.save(LSTM_PATH)
@@ -451,26 +455,27 @@ def avaliar_modelo_teste(
 
     if os.path.exists(test_csv_path):
         print(
-            f"[INFO] Carregando dados de teste pré-gerados de '{test_csv_path}'..."
+            f"[INFO] Carregando dados de teste pré-gerados de "
+            f"'{test_csv_path}'..."
         )
-        X_test, y_test = import_from_csv(test_csv_path,
-                                         mode="lstm")
+
+        X_test, y_test, _ = import_from_csv(test_csv_path)
+
     elif os.path.exists(test_dataset_root):
         print(
-            f"[INFO] Extraindo features de teste de '{test_dataset_root}'..."
+            f"[INFO] Extraindo features de teste de "
+            f"'{test_dataset_root}'..."
         )
-        X_test, y_test = extract_features_from_directory(
+
+        X_test, y_test, _ = extract_features_from_directory(
             dataset_root_dir=test_dataset_root,
-            mode="lstm",
-            export_dataframe=True,
-            output_csv_path=test_csv_path,
+            output_path=test_csv_path,
         )
+
     else:
         print(
-            f"⚠️  [AVISO] Conjunto de teste não encontrado em '{test_csv_path}' nem '{test_dataset_root}'."
-        )
-        print(
-            "Dica: Execute a extração de frames de teste com 'data_preprocessing.py'."
+            f"[AVISO] Conjunto de teste não encontrado em "
+            f"'{test_csv_path}' nem '{test_dataset_root}'."
         )
         return None
 
@@ -479,7 +484,7 @@ def avaliar_modelo_teste(
 
     if len(X_test) == 0:
         print(
-            "⚠️  [AVISO] Nenhum dado de teste disponível para avaliação."
+            "[AVISO] Nenhum dado de teste disponível para avaliação."
         )
         return None
 
