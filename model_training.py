@@ -2,8 +2,11 @@ import os
 import pickle
 
 import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
@@ -12,10 +15,12 @@ from tensorflow.keras.utils import to_categorical
 
 from utils.constants import (
     ENCODER_PATH,
+    KNN_PATH,
     LSTM_EPOCHS,
     LSTM_PATH,
     LSTM_PATIENCE,
     N_AUMENTOS,
+    N_CLUSTERS,
     SEED,
 )
 
@@ -149,6 +154,91 @@ def train_lstm(
 
     print(f"Modelo LSTM salvo em {LSTM_PATH}")
     print(f"Label Encoder salvo em {encoder_path}")
+
+    if return_accuracy:
+        return accuracy
+
+def train_knn(
+    features,
+    labels,
+    KNN_PATH=KNN_PATH,
+    n_clusters=N_CLUSTERS,
+    return_accuracy=False,
+    augmentar=False,
+    n_aumentos=N_AUMENTOS,
+):
+    X = np.array(features)
+    y = np.array(labels)
+
+    if X.ndim != 3:
+        raise ValueError(
+            f"KNN requer dados 3D (amostras, frames, coordenadas). "
+            f"Formato recebido: {X.shape}")
+
+    sequence_length = X.shape[1]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=SEED, stratify=y)
+
+    if augmentar:
+        from landmark_augmentation import gerar_amostras_aumentadas
+
+        X_aug, y_aug = gerar_amostras_aumentadas(
+            X_train.tolist(),
+            y_train.tolist(),
+            mode="lstm",
+            n_aumentos=n_aumentos)
+        X_train = np.array(X_aug)
+        y_train = np.array(y_aug)
+        print(
+            f"Treino após augmentation: {len(X_train)} amostras"
+        )
+
+    # Aprende os centróides de "poses" sobre todos os frames de treino
+    frames_treino = X_train.reshape(-1, X_train.shape[-1])
+    kmeans = KMeans(n_clusters=n_clusters,
+                    random_state=SEED,
+                    n_init=10)
+    kmeans.fit(frames_treino)
+
+    def compactar(sequencias):
+        histogramas = np.zeros((len(sequencias), n_clusters))
+        for i, seq in enumerate(sequencias):
+            clusters = kmeans.predict(seq)
+            for c in clusters:
+                histogramas[i, c] += 1
+            histogramas[i] /= len(seq)
+        return histogramas
+
+    hist_train = compactar(X_train)
+    hist_test = compactar(X_test)
+
+    scaler = StandardScaler()
+    hist_train = scaler.fit_transform(hist_train)
+    hist_test = scaler.transform(hist_test)
+
+    model = KNeighborsClassifier(weights="distance")
+
+    print("\nIniciando treinamento do KNN...")
+    model.fit(hist_train, y_train)
+
+    y_pred = model.predict(hist_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"\nAcurácia do modelo KNN: {accuracy * 100:.2f}%")
+
+    pacote = {
+        "model": model,
+        "scaler": scaler,
+        "kmeans": kmeans,
+        "n_clusters": n_clusters,
+        "sequence_length": sequence_length,
+    }
+
+    os.makedirs(os.path.dirname(KNN_PATH), exist_ok=True)
+    with open(KNN_PATH, "wb") as f:
+        pickle.dump(pacote, f)
+
+    print(f"Modelo KNN salvo em {KNN_PATH}")
 
     if return_accuracy:
         return accuracy

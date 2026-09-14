@@ -52,6 +52,9 @@ K_FOLDS = 5
 EPOCHS_POR_FOLD = 50
 USAR_AUGMENTATION = True
 
+# KNN + K-Means
+N_CLUSTERS = 10
+
 # Hiperparametros Grid Search LSTM
 PARAM_GRID = {
     "units_1": [32, 64],
@@ -91,3 +94,4 @@ PREDICOES_TESTE_PATH = "outputs/predicoes_modelo_2.txt"
 MATRIZ_CONFUSAO_PNG = "logs/matriz_confusao_modelo_2.png"
 LSTM_PATH = "models/lstm_sign_model.h5"
 ENCODER_PATH = "models/label_encoder.pkl"
+KNN_PATH = "models/knn_sign_model.pkl"
