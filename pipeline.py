@@ -13,12 +13,9 @@ Métricas de Avaliação:
 - F1-Score Macro (F1-Macro)
 """
 
-import csv
 import itertools
 import os
 import pickle
-import sys
-import time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,7 +30,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
-from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.callbacks import EarlyStopping
@@ -66,6 +63,7 @@ from utils.constants import (
     USAR_AUGMENTATION,
 )
 
+tf.keras.backend.clear_session()
 
 def construir_modelo_lstm(
     input_shape,
@@ -195,11 +193,11 @@ def executar_grid_search_cv(X, y, groups=None):
             splitter.split(X, y_encoded, groups=groups))
         estrategia_desc = f"StratifiedGroupKFold ({len(np.unique(groups))} vídeos únicos agrupados)"
     else:
-        splitter = StratifiedKFold(n_splits=K_FOLDS,
-                                   shuffle=True,
-                                   random_state=SEED)
-        splits = list(splitter.split(X, y_encoded))
-        estrategia_desc = "StratifiedKFold"
+        raise ValueError(
+            "Os grupos de vídeo são obrigatórios para a validação da LSTM. "
+            "Não é seguro utilizar StratifiedKFold, pois sequências do mesmo "
+            "vídeo poderiam aparecer simultaneamente em treino e validação."
+        )
 
     print("=" * 70)
     print(
@@ -229,7 +227,8 @@ def executar_grid_search_cv(X, y, groups=None):
 
         fold_accuracies = []
         fold_f1_macros = []
-
+        fold_best_epochs = []
+        
         for fold, (train_idx,
                    val_idx) in enumerate(splits, 1):
             X_train_fold, X_val_fold = X[train_idx], X[
@@ -250,10 +249,14 @@ def executar_grid_search_cv(X, y, groups=None):
 
             # One-hot encoding dos rótulos
             y_train_cat = to_categorical(
-                label_encoder.transform(y_train_str))
-            y_val_cat = to_categorical(
-                label_encoder.transform(y_val_str))
+                label_encoder.transform(y_train_str),
+                num_classes=num_classes,
+            )
 
+            y_val_cat = to_categorical(
+                label_encoder.transform(y_val_str),
+                num_classes=num_classes,
+            )
             # Pesos balanceados por classe
             classes_unicas = np.unique(y_train_str)
             pesos_array = compute_class_weight(
@@ -281,7 +284,7 @@ def executar_grid_search_cv(X, y, groups=None):
                 restore_best_weights=True,
                 verbose=0)
 
-            model.fit(
+            history = model.fit(
                 X_train_fold,
                 y_train_cat,
                 epochs=EPOCHS_POR_FOLD,
@@ -291,6 +294,12 @@ def executar_grid_search_cv(X, y, groups=None):
                 class_weight=class_weight_dict,
                 verbose=0,
             )
+
+            melhor_epoca = np.argmin(
+                history.history["val_loss"]
+            ) + 1
+
+            fold_best_epochs.append(melhor_epoca)
 
             # Avaliação no conjunto de validação do fold
             y_val_pred_probs = model.predict(X_val_fold,
@@ -314,7 +323,8 @@ def executar_grid_search_cv(X, y, groups=None):
         acc_std = np.std(fold_accuracies)
         f1_media = np.mean(fold_f1_macros)
         f1_std = np.std(fold_f1_macros)
-
+        epoca_mediana = int(np.median(fold_best_epochs))
+        
         print(f" -> Resultado Médio [{K_FOLDS} Folds]:")
         print(
             f"    - Acurácia Média: {acc_media * 100:.2f}% (± {acc_std * 100:.2f}%)"
@@ -329,6 +339,7 @@ def executar_grid_search_cv(X, y, groups=None):
             "accuracy_std": acc_std,
             "f1_macro_mean": f1_media,
             "f1_macro_std": f1_std,
+            "best_epoch_median": epoca_mediana,
         }
         resultados.append(resultado_registro)
 
@@ -391,7 +402,9 @@ def treinar_modelo_final(X, y, melhor_config,
         y_final_str = y
 
     y_final_cat = to_categorical(
-        label_encoder.transform(y_final_str))
+        label_encoder.transform(y_final_str),
+        num_classes=num_classes,
+    )
 
     classes_unicas = np.unique(y_final_str)
     pesos_array = compute_class_weight(
@@ -400,7 +413,8 @@ def treinar_modelo_final(X, y, melhor_config,
         int(label_encoder.transform([c])[0]): float(p)
         for c, p in zip(classes_unicas, pesos_array)
     }
-
+    
+    tf.keras.backend.clear_session()
     model = construir_modelo_lstm(
         input_shape=input_shape,
         num_classes=num_classes,
@@ -413,10 +427,16 @@ def treinar_modelo_final(X, y, melhor_config,
     print(
         "Treinando o modelo final sobre todo o conjunto de treino..."
     )
+    
+    epocas_finais = max(
+        1,
+        int(melhor_config["best_epoch_median"]),
+    )
+    
     model.fit(
         X_final,
         y_final_cat,
-        epochs=EPOCHS_POR_FOLD,
+        epochs=epocas_finais,
         batch_size=int(melhor_config["batch_size"]),
         class_weight=class_weight_dict,
         verbose=1,
