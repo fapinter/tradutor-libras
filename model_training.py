@@ -15,6 +15,7 @@ from tensorflow.keras.utils import to_categorical
 
 from utils.constants import (
     ENCODER_PATH,
+    KNN_N_NEIGHBORS,
     KNN_PATH,
     LSTM_EPOCHS,
     LSTM_PATH,
@@ -163,10 +164,20 @@ def train_knn(
     labels,
     KNN_PATH=KNN_PATH,
     n_clusters=N_CLUSTERS,
+    n_neighbors=KNN_N_NEIGHBORS,
     return_accuracy=False,
     augmentar=False,
     n_aumentos=N_AUMENTOS,
 ):
+    """
+    Treina um classificador KNN sobre sequências compactadas por K-Means: uma alternativa
+    leve ao LSTM para gestos dinâmicos.
+    Espera features no formato 3D: (amostras, frames, features_por_frame)
+
+    augmentar : bool
+        Se True, aplica data augmentation APENAS nos dados de treino (após o split),
+        evitando data leakage.
+    """
     X = np.array(features)
     y = np.array(labels)
 
@@ -202,13 +213,25 @@ def train_knn(
     kmeans.fit(frames_treino)
 
     def compactar(sequencias):
-        histogramas = np.zeros((len(sequencias), n_clusters))
+        # Primeiras n_clusters colunas: ocupação (quais poses aparecem).
+        # Colunas seguintes (n_clusters x n_clusters): transição entre poses consecutivas.
+        vetores = np.zeros(
+            (len(sequencias), n_clusters + n_clusters * n_clusters))
         for i, seq in enumerate(sequencias):
-            clusters = kmeans.predict(seq)
-            for c in clusters:
-                histogramas[i, c] += 1
-            histogramas[i] /= len(seq)
-        return histogramas
+            clusters_seq = kmeans.predict(seq)
+
+            for c in clusters_seq:
+                vetores[i, c] += 1
+            vetores[i, :n_clusters] /= len(clusters_seq)
+
+            for c_atual, c_seguinte in zip(clusters_seq[:-1],
+                                           clusters_seq[1:]):
+                vetores[i, n_clusters + c_atual * n_clusters +
+                        c_seguinte] += 1
+            n_transicoes = max(len(clusters_seq) - 1, 1)
+            vetores[i, n_clusters:] /= n_transicoes
+
+        return vetores
 
     hist_train = compactar(X_train)
     hist_test = compactar(X_test)
@@ -217,7 +240,8 @@ def train_knn(
     hist_train = scaler.fit_transform(hist_train)
     hist_test = scaler.transform(hist_test)
 
-    model = KNeighborsClassifier(weights="distance")
+    model = KNeighborsClassifier(n_neighbors=n_neighbors,
+                                 weights="distance")
 
     print("\nIniciando treinamento do KNN...")
     model.fit(hist_train, y_train)

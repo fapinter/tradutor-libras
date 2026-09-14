@@ -53,7 +53,8 @@ EPOCHS_POR_FOLD = 50
 USAR_AUGMENTATION = True
 
 # KNN + K-Means
-N_CLUSTERS = 10
+N_CLUSTERS = 110
+KNN_N_NEIGHBORS = 1
 
 # Hiperparametros Grid Search LSTM
 PARAM_GRID = {
