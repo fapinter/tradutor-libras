@@ -13,12 +13,9 @@ Métricas de Avaliação:
 - F1-Score Macro (F1-Macro)
 """
 
-import csv
 import itertools
 import os
 import pickle
-import sys
-import time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,7 +30,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
-from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.callbacks import EarlyStopping
@@ -66,6 +63,7 @@ from utils.constants import (
     USAR_AUGMENTATION,
 )
 
+tf.keras.backend.clear_session()
 
 def construir_modelo_lstm(
     input_shape,
@@ -103,58 +101,63 @@ def construir_modelo_lstm(
     )
     return model
 
-
 def carregar_dados(
     dataset_root=FRAMES_TREINO_DIR,
     csv_path=DATASET_TREINO_CSV,
     return_groups=True,
 ):
     """
-    Carrega o dataset de treino a partir do CSV pré-existente ou extrai diretamente dos diretórios de frames.
-    Retorna features, labels e identificadores de grupos de vídeo.
+    Carrega as sequências temporais utilizadas pela LSTM.
+
+    Formato esperado:
+    X = (amostras, frames, features)
+    Exemplo: (1637, 20, 126)
+
+    groups identifica o vídeo de origem de cada sequência,
+    evitando que sequências do mesmo vídeo sejam usadas
+    simultaneamente em treino e validação.
     """
+
     if os.path.exists(csv_path):
         print(
             f"[INFO] Carregando dataset pré-gerado de '{csv_path}'..."
         )
+
+        features, labels, groups = import_from_csv(csv_path)
+
         if return_groups:
-            features, labels, groups = import_from_csv(
-                csv_path, mode="lstm", return_groups=True)
-            return np.array(features), np.array(
-                labels), np.array(groups)
-        else:
-            features, labels = import_from_csv(
-                csv_path, mode="lstm", return_groups=False)
-            return np.array(features), np.array(labels)
+            return (
+                np.array(features),
+                np.array(labels),
+                np.array(groups),
+            )
+
+        return np.array(features), np.array(labels)
 
     elif os.path.exists(dataset_root):
         print(
             f"[INFO] Extraindo features do diretório '{dataset_root}'..."
         )
-        if return_groups:
-            features, labels, groups = extract_features_from_directory(
-                dataset_root_dir=dataset_root,
-                mode="lstm",
-                export_dataframe=True,
-                output_csv_path=csv_path,
-                return_groups=True,
-            )
-            return np.array(features), np.array(
-                labels), np.array(groups)
-        else:
-            features, labels = extract_features_from_directory(
-                dataset_root_dir=dataset_root,
-                mode="lstm",
-                export_dataframe=True,
-                output_csv_path=csv_path,
-                return_groups=False,
-            )
-            return np.array(features), np.array(labels)
-    else:
-        raise FileNotFoundError(
-            f"Nem o CSV '{csv_path}' nem o diretório '{dataset_root}' foram encontrados."
+
+        features, labels, groups = extract_features_from_directory(
+            dataset_root_dir=dataset_root,
+            output_path=csv_path,
         )
 
+        if return_groups:
+            return (
+                np.array(features),
+                np.array(labels),
+                np.array(groups),
+            )
+
+        return np.array(features), np.array(labels)
+
+    else:
+        raise FileNotFoundError(
+            f"Nem o CSV '{csv_path}' nem o diretório "
+            f"'{dataset_root}' foram encontrados."
+        )
 
 def executar_grid_search_cv(X, y, groups=None):
     """
@@ -190,11 +193,11 @@ def executar_grid_search_cv(X, y, groups=None):
             splitter.split(X, y_encoded, groups=groups))
         estrategia_desc = f"StratifiedGroupKFold ({len(np.unique(groups))} vídeos únicos agrupados)"
     else:
-        splitter = StratifiedKFold(n_splits=K_FOLDS,
-                                   shuffle=True,
-                                   random_state=SEED)
-        splits = list(splitter.split(X, y_encoded))
-        estrategia_desc = "StratifiedKFold"
+        raise ValueError(
+            "Os grupos de vídeo são obrigatórios para a validação da LSTM. "
+            "Não é seguro utilizar StratifiedKFold, pois sequências do mesmo "
+            "vídeo poderiam aparecer simultaneamente em treino e validação."
+        )
 
     print("=" * 70)
     print(
@@ -224,7 +227,8 @@ def executar_grid_search_cv(X, y, groups=None):
 
         fold_accuracies = []
         fold_f1_macros = []
-
+        fold_best_epochs = []
+        
         for fold, (train_idx,
                    val_idx) in enumerate(splits, 1):
             X_train_fold, X_val_fold = X[train_idx], X[
@@ -245,10 +249,14 @@ def executar_grid_search_cv(X, y, groups=None):
 
             # One-hot encoding dos rótulos
             y_train_cat = to_categorical(
-                label_encoder.transform(y_train_str))
-            y_val_cat = to_categorical(
-                label_encoder.transform(y_val_str))
+                label_encoder.transform(y_train_str),
+                num_classes=num_classes,
+            )
 
+            y_val_cat = to_categorical(
+                label_encoder.transform(y_val_str),
+                num_classes=num_classes,
+            )
             # Pesos balanceados por classe
             classes_unicas = np.unique(y_train_str)
             pesos_array = compute_class_weight(
@@ -276,7 +284,7 @@ def executar_grid_search_cv(X, y, groups=None):
                 restore_best_weights=True,
                 verbose=0)
 
-            model.fit(
+            history = model.fit(
                 X_train_fold,
                 y_train_cat,
                 epochs=EPOCHS_POR_FOLD,
@@ -286,6 +294,12 @@ def executar_grid_search_cv(X, y, groups=None):
                 class_weight=class_weight_dict,
                 verbose=0,
             )
+
+            melhor_epoca = np.argmin(
+                history.history["val_loss"]
+            ) + 1
+
+            fold_best_epochs.append(melhor_epoca)
 
             # Avaliação no conjunto de validação do fold
             y_val_pred_probs = model.predict(X_val_fold,
@@ -309,7 +323,8 @@ def executar_grid_search_cv(X, y, groups=None):
         acc_std = np.std(fold_accuracies)
         f1_media = np.mean(fold_f1_macros)
         f1_std = np.std(fold_f1_macros)
-
+        epoca_mediana = int(np.median(fold_best_epochs))
+        
         print(f" -> Resultado Médio [{K_FOLDS} Folds]:")
         print(
             f"    - Acurácia Média: {acc_media * 100:.2f}% (± {acc_std * 100:.2f}%)"
@@ -324,6 +339,7 @@ def executar_grid_search_cv(X, y, groups=None):
             "accuracy_std": acc_std,
             "f1_macro_mean": f1_media,
             "f1_macro_std": f1_std,
+            "best_epoch_median": epoca_mediana,
         }
         resultados.append(resultado_registro)
 
@@ -386,7 +402,9 @@ def treinar_modelo_final(X, y, melhor_config,
         y_final_str = y
 
     y_final_cat = to_categorical(
-        label_encoder.transform(y_final_str))
+        label_encoder.transform(y_final_str),
+        num_classes=num_classes,
+    )
 
     classes_unicas = np.unique(y_final_str)
     pesos_array = compute_class_weight(
@@ -395,7 +413,8 @@ def treinar_modelo_final(X, y, melhor_config,
         int(label_encoder.transform([c])[0]): float(p)
         for c, p in zip(classes_unicas, pesos_array)
     }
-
+    
+    tf.keras.backend.clear_session()
     model = construir_modelo_lstm(
         input_shape=input_shape,
         num_classes=num_classes,
@@ -408,17 +427,22 @@ def treinar_modelo_final(X, y, melhor_config,
     print(
         "Treinando o modelo final sobre todo o conjunto de treino..."
     )
+    
+    epocas_finais = max(
+        1,
+        int(melhor_config["best_epoch_median"]),
+    )
+    
     model.fit(
         X_final,
         y_final_cat,
-        epochs=EPOCHS_POR_FOLD,
+        epochs=epocas_finais,
         batch_size=int(melhor_config["batch_size"]),
         class_weight=class_weight_dict,
         verbose=1,
     )
 
     os.makedirs(MODELS_DIR, exist_ok=True)
-    LSTM_PATH = LSTM_PATH
     encoder_path = ENCODER_PATH
 
     model.save(LSTM_PATH)
@@ -451,26 +475,27 @@ def avaliar_modelo_teste(
 
     if os.path.exists(test_csv_path):
         print(
-            f"[INFO] Carregando dados de teste pré-gerados de '{test_csv_path}'..."
+            f"[INFO] Carregando dados de teste pré-gerados de "
+            f"'{test_csv_path}'..."
         )
-        X_test, y_test = import_from_csv(test_csv_path,
-                                         mode="lstm")
+
+        X_test, y_test, _ = import_from_csv(test_csv_path)
+
     elif os.path.exists(test_dataset_root):
         print(
-            f"[INFO] Extraindo features de teste de '{test_dataset_root}'..."
+            f"[INFO] Extraindo features de teste de "
+            f"'{test_dataset_root}'..."
         )
-        X_test, y_test = extract_features_from_directory(
+
+        X_test, y_test, _ = extract_features_from_directory(
             dataset_root_dir=test_dataset_root,
-            mode="lstm",
-            export_dataframe=True,
-            output_csv_path=test_csv_path,
+            output_path=test_csv_path,
         )
+
     else:
         print(
-            f"⚠️  [AVISO] Conjunto de teste não encontrado em '{test_csv_path}' nem '{test_dataset_root}'."
-        )
-        print(
-            "Dica: Execute a extração de frames de teste com 'data_preprocessing.py'."
+            f"[AVISO] Conjunto de teste não encontrado em "
+            f"'{test_csv_path}' nem '{test_dataset_root}'."
         )
         return None
 
@@ -479,7 +504,7 @@ def avaliar_modelo_teste(
 
     if len(X_test) == 0:
         print(
-            "⚠️  [AVISO] Nenhum dado de teste disponível para avaliação."
+            "[AVISO] Nenhum dado de teste disponível para avaliação."
         )
         return None
 

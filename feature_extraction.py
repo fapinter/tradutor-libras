@@ -97,7 +97,7 @@ def extract_features_from_directory(
                                 results.hand_landmarks,
                                 results.handedness,
                             )
-                            ultimo_valido = landmarks[0:len(landmarks)-1]
+                            ultimo_valido = landmarks[:]
                         else:
                             duplicado = True
                             frames_duplicados += 1
