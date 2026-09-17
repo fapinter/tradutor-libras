@@ -16,6 +16,8 @@ from utils.constants import (
     NUM_FEATURES,
     NUM_HANDS,
     SEQUENCE_LENGTH,
+    ZEROS_FRAME,
+    LOGS_DIR
 )
 from utils.constants_cv import (
     BaseOptions,
@@ -53,7 +55,8 @@ def extract_features_from_directory(
         running_mode=VisionRunningMode.IMAGE,
         num_hands=NUM_HANDS,  # detectar até 2 mãos por frame
     )
-
+    file_ = open(f'{LOGS_DIR}/{output_path[:-4]}.txt', 'w')
+    file_.truncate(0)
     with HandLandmarker.create_from_options(options) as landmarker:
         for gesto in sorted(os.listdir(dataset_root_dir)):
             class_dir = os.path.join(dataset_root_dir, gesto)
@@ -67,6 +70,8 @@ def extract_features_from_directory(
             sequencias_classe = 0
             frames_duplicados = 0
             frames_totais = 0
+            frames_padding = 0
+            num_videos_padding = 0
 
             for video_dir in videos_dir:
                 path_video = os.path.join(class_dir, video_dir)
@@ -124,6 +129,16 @@ def extract_features_from_directory(
                         else:
                             break
 
+                # Preenche o final do video com "frames vazios" para garantir
+                # pelo menos uma amostra de cada gesto nos testes
+                if len(video_landmarks) < sequence_length:
+                    num_frames_padding = sequence_length - len(video_landmarks)
+                    frames_padding += num_frames_padding
+                    num_videos_padding += 1
+                    video_landmarks.extend(
+                        [ZEROS_FRAME for _ in range(num_frames_padding)]
+                    )
+                
                 # Geração de Amostras de 20 frames
                 for i in range(0, len(video_landmarks) - sequence_length + 1, step):
                     features.append(video_landmarks[i:i + sequence_length])
@@ -131,15 +146,26 @@ def extract_features_from_directory(
                     groups.append(video_id)
                     sequencias_classe += 1
             print(f'Frames duplicados em {gesto}: {frames_duplicados}/{frames_totais}')
+            print(f'Frames de padding em {gesto}: {frames_padding}/{frames_totais}')
+            print(f'Vídeos com padding em {gesto}: {num_videos_padding}/{len(videos_dir)}')
+            file_.write(f'Frames duplicados em {gesto}: {frames_duplicados}/{frames_totais}\n')
+            file_.write(f'Frames de padding em {gesto}: {frames_padding}/{frames_totais}\n')
+            file_.write(f'Vídeos com padding em {gesto}: {num_videos_padding}/{len(videos_dir)}\n')
 
             if sequencias_classe == 0:
-                print(f"  AVISO: '{gesto}' gerou 0 sequências."+
-                    f"\nVerifique se os vídeos têm >= {sequence_length} frames detectáveis.")
+                print(f"  AVISO: '{gesto}' gerou 0 sequências.\n"+
+                    f"Verifique se os vídeos têm >= {sequence_length} frames detectáveis.")
+                file_.write(f"  AVISO: '{gesto}' gerou 0 sequências.\n"+
+                    f"Verifique se os vídeos têm >= {sequence_length} frames detectáveis.\n")
+
             else:
                 print(f"  -> {sequencias_classe} sequência(s) para '{gesto}'")
+                file_.write(f"  -> {sequencias_classe} sequência(s) para '{gesto}'\n")
     print(f'Shape das features: ({len(features)}, {len(features[0])}, {len(features[0][0])})')
     print(f"\nExtração concluída! Total de {len(features)} amostras coletadas")
-
+    file_.write(f'Shape das features: ({len(features)}, {len(features[0])}, {len(features[0][0])})\n')
+    file_.write(f"\nExtração concluída! Total de {len(features)} amostras coletadas\n")
+    file_.close()
     # Exportação para CSV dos dados
     print('Exportando dataset para csv')
 
