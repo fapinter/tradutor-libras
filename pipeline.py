@@ -158,15 +158,15 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         param_grid=params,
         cv=cv,
         scoring=scoring_method,
-        n_jobs=8,
-        verbose=0
+        n_jobs=-1,
+        verbose=2
     )
     grid.fit(X_fit, y_fit, groups=groups)
     return grid.best_estimator_, grid.best_params_, grid.best_score_
 
 
 
-def avaliar_modelo_teste(model_name, model, label_encoder, X_test, y_test):
+def avaliar_modelo_teste(model_name, model, best_params, label_encoder, X_test, y_test):
     """
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo
@@ -191,6 +191,9 @@ def avaliar_modelo_teste(model_name, model, label_encoder, X_test, y_test):
     file_.write(f"Total de Amostras de Teste: {len(y_test)}\n")
     file_.write(f"Acurácia no Teste: {acc * 100:.2f}%\n")
     file_.write(f"F1-Score Macro:             {f1_mac * 100:.2f}%\n")
+
+    file_.write(f"Hiperparametros do {model_name}: {best_params.items()}")
+
     file_.write("\nRelatório de Classificação por Classe:\n")
     file_.write(report_text)
     file_.close()
@@ -237,10 +240,11 @@ if __name__ == "__main__":
     X_train, y_train, groups_train, X_val, y_val, groups_val = splitTrainValidation(
         x_fit=X_train, y_fit=y_train, groups_fit=groups_train
     )
-    X_aug, y_aug = gerar_amostras_aumentadas(X_train, y_train)
+    #X_aug, y_aug = gerar_amostras_aumentadas(X_train, y_train)
 
     label_encoder = LabelEncoder()
     y_train_encoded = label_encoder.fit_transform(y_train)
+    y_val_encoded = label_encoder.fit_transform(y_val)
     num_labels = len(label_encoder.classes_)
 
     print("Shape Dados  de Treino: ", X_train.shape)
@@ -264,8 +268,8 @@ if __name__ == "__main__":
     # pois realiza a análise de acerto das
     # classes com o mesmo peso para todas as classes
     scoring_method = "f1_macro"
-    for model, params, path_model, usar_augmentation in models:
-        match(model):
+    for model_name, params, path_model, usar_augmentation in models:
+        match(model_name):
             case "lstm":
                 # Configuração de Early Stopping para evitar
                 # a passagem por todas as 100 épocas em todos
@@ -287,10 +291,10 @@ if __name__ == "__main__":
             case default:
                 pass
         # Aplica o Grid Search no modelo
-        if usar_augmentation:
-            x_fit, y_fit = X_aug, label_encoder.transform(y_aug)
-        else:
-            x_fit, y_fit = X_train, y_train_encoded
+        #if usar_augmentation:
+        #    x_fit, y_fit = X_aug, label_encoder.transform(y_aug)
+        #else:
+        x_fit, y_fit = X_train, y_train_encoded
         
         best_model, best_params, best_score = applyGridSearch(
             model_used=model,
@@ -300,12 +304,13 @@ if __name__ == "__main__":
             y_fit=y_fit,
             groups=groups_train,
             X_val=X_val,
-            y_val=y_val
+            y_val=y_val_encoded
         )
         # Realiza o teste e grava métricas em arquivos
         avaliar_modelo_teste(
-            model_name=model,
+            model_name=model_name,
             model=best_model,
+            best_params=best_params,
             label_encoder=label_encoder,
             X_test=X_test, 
             y_test=y_test
