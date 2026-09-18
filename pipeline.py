@@ -25,8 +25,8 @@ from sklearn.metrics import (
 from sklearn.model_selection import StratifiedGroupKFold, GridSearchCV
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import f1_score, accuracy_score
-from tensorflow.python.keras.layers import LSTM, Dense, Dropout, Input
-from tensorflow.python.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from scikeras.wrappers import KerasClassifier
@@ -38,6 +38,7 @@ from utils.constants import (
     DATASET_TREINO_CSV,
     ENCODER_PATH,
     LSTM_PATH,
+    LSTM_PATH_AUG,
     MATRIZ_LSTM_PATH,
     OUTPUTS_DIR,
     PARAM_GRID_LSTM,
@@ -46,6 +47,37 @@ from utils.constants import (
 
 tf.keras.backend.clear_session()
 
+def splitTrainValidation(x_fit, y_fit, groups_fit):
+    """
+    Separa dados de treino dos dados de teste para aplicar
+    o EarlyStopping no GridSearch corretamente
+    """
+    cv = StratifiedGroupKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=42
+    )
+
+    X_dummy = np.zeros(len(y_fit))
+    train_idx, val_idx = next(
+        cv.split(X_dummy, y_fit, groups=groups_fit)
+    )
+
+    x_train = x_fit[train_idx]
+    y_train = y_fit[train_idx]
+    groups_train = groups_fit[train_idx]
+
+    x_val = x_fit[val_idx]    
+    y_val = y_fit[val_idx]    
+    groups_val = groups_fit[val_idx]
+
+    overlap = set(groups_train).intersection(set(groups_val))
+    if overlap:
+        raise ValueError(f'Overlap entre grupos de Treino e Validação: {overlap}')    
+
+    return x_train, y_train, groups_train, x_val, y_val, groups_val
+
+
 def create_lstm_model(
     input_shape, num_classes, lstm_units_1=128, 
     lstm_units_2=64, dense_units=64, dropout_rate=0.3, learning_rate=0.001
@@ -53,14 +85,6 @@ def create_lstm_model(
     """
         Constrói e compila o modelo LSTM com os hiperparâmetros fornecidos.
     """
-    # Configuração de Early Stopping para evitar
-    # a passagem por todas as 100 épocas em todos
-    # os treinamentos
-    early_stopping = EarlyStopping(
-        monitor="val_loss",
-        patience=10,
-        restore_best_weights=True
-    )
 
     model = Sequential([
         # Camada de entrada do Modelo
@@ -92,13 +116,7 @@ def create_lstm_model(
     # Adequado para o treinamento de redes recorrentes
     optimizer = Adam(learning_rate=learning_rate)
 
-    # sparse_categorical_crossentropy:
-    # utilizar quando os rótulos estiverem no formato inteiro:
-    #
-    # 0, 1, 2, ..., 18
-    #
-    # Se y estiver usando one-hot encoding, deve ser substituído por
-    # categorical_crossentropy.
+    # sparse_categorical_crossentropy: classes como inteiros (0, 1, 2, ...)
     model.compile(
         optimizer=optimizer,
         loss="sparse_categorical_crossentropy",
@@ -107,7 +125,7 @@ def create_lstm_model(
     return model
 
 
-def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups):
+def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val):
     """
     Executa GridSearchCV para um dado modelo (pipeline) e espaço de parâmetros.
 
@@ -116,12 +134,17 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups):
         params                  : dicionário de hiperparâmetros.
         scoring_method          : métrica de avaliação.
         X_fit, y_fit, groups    : dados de treino.
+        X_val, y_val            : dados de validação
 
     Retorna:
         best_estimator_         : melhor modelo encontrado.
         best_params_            : melhor combinação de hiperparâmetros.
         best_score_             : melhor score obtido na validação cruzada.
     """
+
+    model_used.set_params(
+        fit__validation_data=(X_val, y_val)
+    )
 
     cv = StratifiedGroupKFold(
         n_splits=5,
@@ -149,7 +172,7 @@ def avaliar_modelo_teste(model_name, model, label_encoder, X_test, y_test):
     e gera a Matriz de Confusão da predição do modelo
     """
     # Realiza as predições do modelo
-    y_pred_probs = model.predict(X_test, verbose=0)
+    y_pred_probs = model.predict_proba(X_test, verbose=0)
     y_pred = np.argmax(y_pred_probs, axis=1)
 
     # Valor Previsto -> Gesto do LabelEncoder
@@ -200,53 +223,84 @@ def avaliar_modelo_teste(model_name, model, label_encoder, X_test, y_test):
 
 
 if __name__ == "__main__":
-    X_train, y_train, groups = import_from_csv(DATASET_TREINO_CSV)
-    X_test, y_test, groups = import_from_csv(DATASET_TESTE_CSV)
-    print("Shape Dados de Treino: ", X_train.shape)
-    print("Shape Labels de Treino: ", y_train.shape)
-    print("Shape Grupos de Treino: ", groups.shape)
+    # TODO: Adicionar os outros modelos para o treinamento
+    models = [
+        # Modelo, Hiperparametros, Path binário, Usar Augmentation?
+        ('lstm', PARAM_GRID_LSTM, LSTM_PATH, False),
+    #    ('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True)
+    ]
+
+    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_CSV)
+    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_CSV)
+
+
+    X_train, y_train, groups_train, X_val, y_val, groups_val = splitTrainValidation(
+        x_fit=X_train, y_fit=y_train, groups_fit=groups_train
+    )
+    X_aug, y_aug = gerar_amostras_aumentadas(X_train, y_train)
 
     label_encoder = LabelEncoder()
-    y_train_encoded = label_encoder.transform(y_train)
+    y_train_encoded = label_encoder.fit_transform(y_train)
     num_labels = len(label_encoder.classes_)
 
+    print("Shape Dados  de Treino: ", X_train.shape)
+    print("Shape Labels de Treino: ", y_train.shape)
+    print("Shape Grupos de Treino: ", groups_train.shape)
 
-    # Loop de modelos gerados
-    models = [
-        ('lstm', PARAM_GRID_LSTM, LSTM_PATH),
-    ]
-    input_shape = (X_train.shape[1], X_train.shape[2])
+    print("Shape Dados  de Validação: ", X_val.shape)
+    print("Shape Labels de Validação: ", y_val.shape)
+    print("Shape Grupos de Validação: ", groups_val.shape)
+
+    print("Shape Dados  de Teste: ", X_test.shape)
+    print("Shape Labels de Teste: ", y_test.shape)
+    print("Shape Grupos de Teste: ", groups_test.shape)
 
     # TODO Adicionar o Data Augmentation aqui para validar os modelos
+    
+    input_shape = (X_train.shape[1], X_train.shape[2])
 
-
-    cv = StratifiedGroupKFold(
-        n_splits=5,
-        shuffle=True,
-        random_state=42
-    )
-    scoring_method = "f1-macro"
-    for model, params, path_model in models:
+    # F1-Score Macro como métrica para
+    # garantir os melhores parâmetros
+    # pois realiza a análise de acerto das
+    # classes com o mesmo peso para todas as classes
+    scoring_method = "f1_macro"
+    for model, params, path_model, usar_augmentation in models:
         match(model):
             case "lstm":
+                # Configuração de Early Stopping para evitar
+                # a passagem por todas as 100 épocas em todos
+                # os treinamentos
+                early_stopping = EarlyStopping(
+                    monitor="val_loss",
+                    patience=10,
+                    restore_best_weights=True
+                )
                 model = KerasClassifier(
                     model=create_lstm_model,
                     model__input_shape=input_shape,
-                    model__n_classes=num_labels,
-                    verbose=0
+                    model__num_classes=num_labels,
+                    verbose=0,
+                    callbacks=[early_stopping]
                 )
             case "kmeans":
                 pass
             case default:
                 pass
         # Aplica o Grid Search no modelo
+        if usar_augmentation:
+            x_fit, y_fit = X_aug, label_encoder.transform(y_aug)
+        else:
+            x_fit, y_fit = X_train, y_train_encoded
+        
         best_model, best_params, best_score = applyGridSearch(
             model_used=model,
             params=params,
             scoring_method=scoring_method,
-            X_fit=X_train,
-            y_fit=y_train_encoded,
-            groups=groups
+            X_fit=x_fit,
+            y_fit=y_fit,
+            groups=groups_train,
+            X_val=X_val,
+            y_val=y_val
         )
         # Realiza o teste e grava métricas em arquivos
         avaliar_modelo_teste(
@@ -257,7 +311,7 @@ if __name__ == "__main__":
             y_test=y_test
         )
 
-        best_model.save(path_model)
+        best_model.model_.save(path_model)
 
     # Armazena o LabelEncoder em disco
     with open(ENCODER_PATH, 'wb') as f:
