@@ -272,74 +272,49 @@ def augmentar_sequencia(sequencia, transformacoes):
     return resultado
 
 
-def gerar_amostras_aumentadas(features,
-                              labels,
-                              mode="rf",
-                              n_aumentos=N_AUMENTOS,
-                              seed=SEED):
+def gerar_amostras_aumentadas(features, labels, n_aumentos=N_AUMENTOS, seed=SEED):
     """
     Gera amostras augmentadas para o dataset inteiro.
     Suporta 63 e 126 features automaticamente.
-
-    mode : "rf"   → features 2D (N, F)
-           "lstm" → features 3D (N, T, F)
     n_aumentos : augmentações por amostra original.
         Com n_aumentos=5: 1 espelhamento + 4 combinações = +5 → total 6×.
     """
     np.random.seed(seed)
 
-    transformacoes_disponiveis = [
-        _ruido, _escala, _rotacao_2d
-    ]
+    transformacoes_disponiveis = [_ruido, _escala, _rotacao_2d]
 
     features_aug = list(features)
     labels_aug = list(labels)
 
     originais_por_classe = {}
     for l in labels:
-        originais_por_classe[l] = originais_por_classe.get(
-            l, 0) + 1
+        originais_por_classe[l] = originais_por_classe.get(l, 0) + 1
 
     print("\n--- Augmentation de Landmarks ---")
     print(f"Amostras originais: {len(features)}")
     print(f"Gerando {n_aumentos} variações por amostra...")
 
     for amostra, label in zip(features, labels):
-        # 1. Espelhamento (sempre — é a mais valiosa, simula mão não-dominante)
-        if mode == "rf":
-            esp = _processar_frame(
-                np.array(amostra, dtype=np.float32),
-                [_espelhamento])
-            features_aug.append(esp)
-        else:
-            esp = augmentar_sequencia(amostra,
-                                      [_espelhamento])
-            features_aug.append(esp)
+
+        esp = augmentar_sequencia(amostra, [_espelhamento])
+        features_aug.append(esp)
         labels_aug.append(label)
 
         # 2. Combinações aleatórias das demais transformações
         for _ in range(n_aumentos - 1):
-            n_t = np.random.randint(
-                1,
-                len(transformacoes_disponiveis) + 1)
+            n_t = np.random.randint(1, len(transformacoes_disponiveis) + 1)
             escolhidas = np.random.choice(
                 transformacoes_disponiveis,
                 size=n_t,
-                replace=False).tolist()
+                replace=False
+            ).tolist()
 
-            if mode == "rf":
-                nova = augmentar_frame(amostra, escolhidas)
-            else:
-                nova = augmentar_sequencia(
-                    amostra, escolhidas)
+            nova = augmentar_sequencia(amostra, escolhidas)
             features_aug.append(nova)
             labels_aug.append(label)
 
-    print(
-        f"Amostras após augmentation: {len(features_aug)}")
-    print(
-        f"Aumento: {len(features_aug) / max(len(features), 1):.1f}×"
-    )
+    print(f"Amostras após augmentation: {len(features_aug)}")
+    print(f"Aumento: {len(features_aug) / max(len(features), 1):.1f}×")
 
     dist = {}
     for l in labels_aug:
@@ -349,7 +324,7 @@ def gerar_amostras_aumentadas(features,
         orig = originais_por_classe.get(classe, 0)
         print(f"  {classe}: {orig} → {qtd} amostras")
 
-    return features_aug, labels_aug
+    return np.array(features_aug), np.array(labels_aug)
 
 
 # ---------------------------------------------------------------------------
@@ -361,48 +336,26 @@ if __name__ == "__main__":
     np.random.seed(0)
     f_rf = [np.random.randn(63).tolist() for _ in range(6)]
     l_rf = ["oi"] * 3 + ["tchau"] * 3
-    f_aug, l_aug = gerar_amostras_aumentadas(f_rf,
-                                             l_rf,
-                                             mode="rf",
-                                             n_aumentos=5)
+    f_aug, l_aug = gerar_amostras_aumentadas(f_rf, l_rf, n_aumentos=5)
     assert len(f_aug) == len(l_aug) and len(f_aug[0]) == 63
     print("[RF 1 mão] OK")
 
     print("\n=== Teste: 2 mãos (126 features) ===")
-    f_rf2 = [
-        np.random.randn(126).tolist() for _ in range(6)
-    ]
-    f_aug2, l_aug2 = gerar_amostras_aumentadas(f_rf2,
-                                               l_rf,
-                                               mode="rf",
-                                               n_aumentos=5)
+    f_rf2 = [np.random.randn(126).tolist() for _ in range(6)]
+    f_aug2, l_aug2 = gerar_amostras_aumentadas(f_rf2, l_rf, n_aumentos=5)
     assert len(f_aug2[0]) == 126
     print("[RF 2 mãos] OK")
 
-    print(
-        "\n=== Teste: LSTM 1 mão (seq T=20, 63 features) ==="
-    )
-    f_lstm = [
-        np.random.randn(20, 63).tolist() for _ in range(4)
-    ]
+    print("\n=== Teste: LSTM 1 mão (seq T=20, 63 features) ===")
+    f_lstm = [np.random.randn(20, 63).tolist() for _ in range(4)]
     l_lstm = ["oi"] * 2 + ["tchau"] * 2
-    f_aug3, l_aug3 = gerar_amostras_aumentadas(f_lstm,
-                                               l_lstm,
-                                               mode="lstm",
-                                               n_aumentos=5)
+    f_aug3, l_aug3 = gerar_amostras_aumentadas(f_lstm, l_lstm, n_aumentos=5)
     assert len(f_aug3[0]) == 20 and len(f_aug3[0][0]) == 63
     print("[LSTM 1 mão] OK")
 
-    print(
-        "\n=== Teste: LSTM 2 mãos (seq T=20, 126 features) ==="
-    )
-    f_lstm2 = [
-        np.random.randn(20, 126).tolist() for _ in range(4)
-    ]
-    f_aug4, l_aug4 = gerar_amostras_aumentadas(f_lstm2,
-                                               l_lstm,
-                                               mode="lstm",
-                                               n_aumentos=5)
+    print("\n=== Teste: LSTM 2 mãos (seq T=20, 126 features) ===")
+    f_lstm2 = [np.random.randn(20, 126).tolist() for _ in range(4)]
+    f_aug4, l_aug4 = gerar_amostras_aumentadas(f_lstm2, l_lstm, n_aumentos=5)
     assert len(f_aug4[0]) == 20 and len(f_aug4[0][0]) == 126
     print("[LSTM 2 mãos] OK")
 

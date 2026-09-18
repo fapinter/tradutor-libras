@@ -6,3 +6,4 @@ opencv-python
 pandas
 matplotlib
 tqdm
+scikeras

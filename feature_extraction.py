@@ -201,7 +201,8 @@ def extract_features_from_directory(
 def import_from_csv(filepath: str):
     """
     Carrega o dataset a partir de um CSV no formato 3D para o modelo LSTM: (amostras, frames, features).
-    Se return_groups=True, retorna também o array de identificadores de vídeo/grupo (para StratifiedGroupKFold).
+    Retorna 3 arrays features (amostras do dataset), labels (labels de cada amostra), 
+    groups (video ao qual pertence a amostra).
     """
     df = pd.read_csv(filepath)
 
