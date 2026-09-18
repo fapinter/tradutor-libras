@@ -53,12 +53,14 @@ EPOCHS_POR_FOLD = 50
 USAR_AUGMENTATION = True
 
 # Hiperparametros Grid Search LSTM
-PARAM_GRID = {
-    "units_1": [32, 64],
-    "units_2": [64, 128],
-    "dropout": [0.2, 0.3],
-    "learning_rate": [0.001, 0.0005],
-    "batch_size": [8, 16],
+PARAM_GRID_LSTM = {
+    "model__lstm_units_1": [64, 128],
+    "model__lstm_units_2": [32, 64],
+    "model__dense_units": [32, 64],
+    "model__dropout_rate": [0.2, 0.4],
+    "model__learning_rate": [0.001, 0.0005],
+    "batch_size": [16, 32],
+    "epochs": [100]
 }
 
 # Captura de Vídeo em Tempo Real
@@ -87,7 +89,7 @@ OUTPUTS_DIR = "outputs"
 RESULTADOS_TREINO_CSV = "logs/resultados_treino.csv"
 GRID_SEARCH_RESULTS_CSV = "outputs/grid_search_results.csv"
 RELATORIO_AVALIACAO_TESTE = "outputs/relatorio_avaliacao_teste.txt"
-PREDICOES_TESTE_PATH = "outputs/predicoes_modelo_2.txt"
-MATRIZ_CONFUSAO_PNG = "logs/matriz_confusao_modelo_2.png"
+PREDICOES_LSTM_PATH = "outputs/predicoes_lstm.txt"
+MATRIZ_LSTM_PATH = "outputs/matriz_lstm.png"
 LSTM_PATH = "models/lstm_sign_model.h5"
 ENCODER_PATH = "models/label_encoder.pkl"
