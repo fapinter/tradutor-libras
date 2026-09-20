@@ -55,12 +55,11 @@ def extrair_ambas_maos(hand_landmarks_list, handedness_list):
     return feats_direita + feats_esquerda
 
 
-def _salvar_log_treino(acuracia, n_amostras, augmentar,
-                       n_aumentos):
+def _salvar_log_treino(nome_modelo, acuracia, f1_score, n_amostras, augmentar, n_aumentos):
     """Persiste a acurácia de cada treino em logs/resultados_treino.csv."""
     log_path = RESULTADOS_TREINO_CSV
     cabecalho = [
-        'data_hora', 'modelo', 'acuracia_%',
+        'data_hora', 'modelo', 'acuracia_%', 'f1_macro_%',
         'amostras_treino', 'augmentation', 'n_aumentos'
     ]
     novo_arquivo = not os.path.exists(log_path)
@@ -72,8 +71,9 @@ def _salvar_log_treino(acuracia, n_amostras, augmentar,
             writer.writerow(cabecalho)
         writer.writerow([
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'LSTM',
+            nome_modelo,
             f'{acuracia * 100:.2f}',
+            f'{f1_score * 100:.2f}',
             n_amostras,
             'sim' if augmentar else 'nao',
             n_aumentos if augmentar else 0,
