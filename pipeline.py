@@ -43,7 +43,9 @@ from utils.constants import (
     OUTPUTS_DIR,
     PARAM_GRID_LSTM,
     PREDICOES_LSTM_PATH,
+    N_AUMENTOS
 )
+from utils.utils import _salvar_log_treino
 
 tf.keras.backend.clear_session()
 
@@ -159,14 +161,25 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         cv=cv,
         scoring=scoring_method,
         n_jobs=-1,
-        verbose=2
+        verbose=1
     )
     grid.fit(X_fit, y_fit, groups=groups)
     return grid.best_estimator_, grid.best_params_, grid.best_score_
 
 
 
-def avaliar_modelo_teste(model_name, model, best_params, label_encoder, X_test, y_test):
+def avaliar_modelo_teste(
+    model_name,
+    model,
+    best_params,
+    label_encoder,
+    X_test,
+    y_test,
+    n_amostras_treino,
+    n_aumentos,
+    augmentation
+):
+
     """
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo
@@ -185,6 +198,8 @@ def avaliar_modelo_teste(model_name, model, best_params, label_encoder, X_test, 
     f1_mac = f1_score(y_test_encoded, y_pred, average="macro", zero_division=0)
     report_text = str(classification_report(y_test, y_pred_str, zero_division=0, output_dict=False))
 
+
+    _salvar_log_treino(model_name, acc, f1_mac, n_amostras_treino, augmentation, n_aumentos)
     # Salva resultados em outputs/
     file_ = open(f'{OUTPUTS_DIR}/results_{model_name}.txt', 'w')
     file_.truncate(0)
@@ -243,7 +258,7 @@ if __name__ == "__main__":
     print(X_train.shape)
     print(y_train.shape)
     X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
-        X_train.tolist(), y_train.tolist(), groups_train.tolist()
+        X_train.tolist(), y_train.tolist(), groups_train.tolist(), n_aumentos=N_AUMENTOS
     )
 
     label_encoder = LabelEncoder()
@@ -322,7 +337,10 @@ if __name__ == "__main__":
             best_params=best_params,
             label_encoder=label_encoder,
             X_test=X_test, 
-            y_test=y_test
+            y_test=y_test,
+            n_amostras_treino=x_fit.shape[0],
+            n_aumentos=N_AUMENTOS,
+            augmentation=usar_augmentation
         )
 
         best_model.model_.save(path_model)

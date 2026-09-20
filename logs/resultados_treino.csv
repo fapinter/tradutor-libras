@@ -1,7 +1,3 @@
-data_hora,modelo,acuracia_%,amostras_treino,augmentation,n_aumentos
-2026-08-06 14:58:53,Random Forest,89.67,7209,sim,6
-2026-08-06 15:02:07,Random Forest,90.15,7209,sim,10
-2026-08-06 16:19:42,LSTM,98.59,3892,sim,6
-2026-08-06 16:22:39,KNN,88.07,7209,sim,6
-2026-08-06 16:22:51,KNN,88.21,7209,sim,10
-2026-08-06 17:07:00,LSTM,98.59,3892,sim,10
+data_hora,modelo,acuracia_%,f1_macro_%, amostras_treino,augmentation,n_aumentos
+2026-09-20 15:08:01,lstm,50.00,47.55,8052,sim,5
+2026-09-20 15:38:08,lstm,40.00,35.17,1342,nao,0
