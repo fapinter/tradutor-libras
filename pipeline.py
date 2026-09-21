@@ -39,10 +39,10 @@ from utils.constants import (
     ENCODER_PATH,
     LSTM_PATH,
     LSTM_PATH_AUG,
-    MATRIZ_LSTM_PATH,
+    MATRIZ_PATH,
     OUTPUTS_DIR,
     PARAM_GRID_LSTM,
-    PREDICOES_LSTM_PATH,
+    PREDICOES_PATH,
     N_AUMENTOS
 )
 from utils.utils import _salvar_log_treino
@@ -184,6 +184,12 @@ def avaliar_modelo_teste(
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo
     """
+    if augmentation:
+        model_name += '_aug'
+    predicoes_path = PREDICOES_PATH % model_name
+    matriz_path = MATRIZ_PATH % model_name
+
+
     # Realiza as predições do modelo
     y_pred_probs = model.predict_proba(X_test, verbose=0)
     y_pred = np.argmax(y_pred_probs, axis=1)
@@ -214,10 +220,10 @@ def avaliar_modelo_teste(
     file_.close()
 
     # Salvar predições brutas
-    with open(PREDICOES_LSTM_PATH, "w", encoding="utf-8") as f:
+    with open(predicoes_path, "w", encoding="utf-8") as f:
         for pred in y_pred_str:
             f.write(f"{pred}\n")
-    print(f"[OK] Predições salvas em '{PREDICOES_LSTM_PATH}'")
+    print(f"[OK] Predições salvas em '{predicoes_path}'")
 
     # Gerar e salvar Matriz de Confusão
     try:
@@ -232,7 +238,7 @@ def avaliar_modelo_teste(
         plt.xlabel("Gesto Predito", fontsize=12)
         plt.ylabel("Gesto Real", fontsize=12)
         plt.tight_layout()
-        plt.savefig(MATRIZ_LSTM_PATH, dpi=150, bbox_inches="tight")
+        plt.savefig(matriz_path, dpi=150, bbox_inches="tight")
         plt.close(fig)
 
     except Exception as e:
