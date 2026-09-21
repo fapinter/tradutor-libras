@@ -17,6 +17,7 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.cluster import KMeans
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     accuracy_score,
@@ -25,7 +26,6 @@ from sklearn.metrics import (
     f1_score,
 )
 from sklearn.model_selection import StratifiedGroupKFold, GridSearchCV
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import f1_score, accuracy_score
@@ -41,15 +41,15 @@ from utils.constants import (
     DATASET_TESTE_CSV,
     DATASET_TREINO_CSV,
     ENCODER_PATH,
-    KNN_PATH,
+    KMEANS_PATH,
     LSTM_PATH,
     LSTM_PATH_AUG,
-    MATRIZ_KNN_PATH,
+    MATRIZ_KMEANS_PATH,
     MATRIZ_LSTM_PATH,
     OUTPUTS_DIR,
-    PARAM_GRID_KNN,
+    PARAM_GRID_KMEANS,
     PARAM_GRID_LSTM,
-    PREDICOES_KNN_PATH,
+    PREDICOES_KMEANS_PATH,
     PREDICOES_LSTM_PATH,
     SEED,
 )
@@ -173,11 +173,13 @@ class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
         return vetores
 
 
-def criar_pipeline_knn():
+def criar_pipeline_kmeans():
     return Pipeline([
         ("compactar", SequenciaParaHistograma()),
         ("scaler", StandardScaler()),
-        ("knn", KNeighborsClassifier(weights="distance")),
+        ("rf", RandomForestClassifier(max_depth=None,
+                                      class_weight="balanced",
+                                      random_state=SEED)),
     ])
 
 
@@ -296,21 +298,22 @@ if __name__ == "__main__":
         # Modelo, Hiperparametros, Path binário, Usar Augmentation?
         ('lstm', PARAM_GRID_LSTM, LSTM_PATH, False),
     #    ('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True)
-        ('kmeans', PARAM_GRID_KNN, KNN_PATH, False),
+        ('kmeans', PARAM_GRID_KMEANS, KMEANS_PATH, False),
     ]
 
     X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_CSV)
     X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_CSV)
 
 
-    X_train, y_train, groups_train, X_val, y_val, groups_val = splitTrainValidation(
+    X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
         x_fit=X_train, y_fit=y_train, groups_fit=groups_train
     )
     #X_aug, y_aug = gerar_amostras_aumentadas(X_train, y_train)
 
     label_encoder = LabelEncoder()
     y_train_encoded = label_encoder.fit_transform(y_train)
-    y_val_encoded = label_encoder.fit_transform(y_val)
+    y_train_reduzido_encoded = label_encoder.transform(y_train_reduzido)
+    y_val_encoded = label_encoder.transform(y_val)
     num_labels = len(label_encoder.classes_)
 
     print("Shape Dados  de Treino: ", X_train.shape)
@@ -353,17 +356,23 @@ if __name__ == "__main__":
                     callbacks=[early_stopping]
                 )
             case "kmeans":
-                model = criar_pipeline_knn()
+                model = criar_pipeline_kmeans()
             case default:
                 pass
 
         eh_modelo_keras = model_name == "lstm"
 
+        # LSTM precisa reservar dados de validação pro EarlyStopping; KMeans/RF não usa
+        # validação separada, então treina com o dataset de treino completo.
+        if eh_modelo_keras:
+            x_fit, y_fit, groups_fit = X_train_reduzido, y_train_reduzido_encoded, groups_train_reduzido
+        else:
+            x_fit, y_fit, groups_fit = X_train, y_train_encoded, groups_train
+
         # Aplica o Grid Search no modelo
         #if usar_augmentation:
         #    x_fit, y_fit = X_aug, label_encoder.transform(y_aug)
         #else:
-        x_fit, y_fit = X_train, y_train_encoded
 
         best_model, best_params, best_score = applyGridSearch(
             model_used=model,
@@ -371,7 +380,7 @@ if __name__ == "__main__":
             scoring_method=scoring_method,
             X_fit=x_fit,
             y_fit=y_fit,
-            groups=groups_train,
+            groups=groups_fit,
             X_val=X_val,
             y_val=y_val_encoded,
             usa_validation_data=eh_modelo_keras,
@@ -380,7 +389,7 @@ if __name__ == "__main__":
         if model_name == "lstm":
             predicoes_path, matriz_path = PREDICOES_LSTM_PATH, MATRIZ_LSTM_PATH
         else:
-            predicoes_path, matriz_path = PREDICOES_KNN_PATH, MATRIZ_KNN_PATH
+            predicoes_path, matriz_path = PREDICOES_KMEANS_PATH, MATRIZ_KMEANS_PATH
 
         # Realiza o teste e grava métricas em arquivos
         avaliar_modelo_teste(

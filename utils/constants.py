@@ -63,10 +63,10 @@ PARAM_GRID_LSTM = {
     "epochs": [100]
 }
 
-# Hiperparametros Grid Search KNN + K-Means
-PARAM_GRID_KNN = {
-    "compactar__n_clusters": [50, 70, 110],
-    "knn__n_neighbors": [1, 3, 5],
+# Hiperparametros Grid Search K-Means + Random Forest
+PARAM_GRID_KMEANS = {
+    "compactar__n_clusters": [70, 110],
+    "rf__n_estimators": [200, 400],
 }
 
 # Captura de Vídeo em Tempo Real
@@ -101,6 +101,6 @@ LSTM_PATH = "models/lstm_sign_model.keras"
 LSTM_PATH_AUG = "models/lstm_sign_model_aug.keras"
 ENCODER_PATH = "models/label_encoder.pkl"
 
-PREDICOES_KNN_PATH = "outputs/predicoes_knn.txt"
-MATRIZ_KNN_PATH = "outputs/matriz_knn.png"
-KNN_PATH = "models/knn_sign_model.pkl"
+PREDICOES_KMEANS_PATH = "outputs/predicoes_kmeans.txt"
+MATRIZ_KMEANS_PATH = "outputs/matriz_kmeans.png"
+KMEANS_PATH = "models/kmeans_sign_model.pkl"
