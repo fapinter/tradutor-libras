@@ -1,3 +1,5 @@
 data_hora,modelo,acuracia_%,f1_macro_%, amostras_treino,augmentation,n_aumentos
 2026-09-20 15:08:01,lstm,50.00,47.55,8052,sim,5
 2026-09-20 15:38:08,lstm,40.00,35.17,1342,nao,0
+2026-09-21 10:19:37,lstm_aug,47.50,43.52,8052,sim,5
+2026-09-21 10:51:11,lstm,37.50,31.41,1342,nao,0
