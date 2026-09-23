@@ -297,7 +297,7 @@ if __name__ == "__main__":
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation?
         ('lstm', PARAM_GRID_LSTM, LSTM_PATH, False),
-    #    ('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True)
+        ('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
         ('kmeans', PARAM_GRID_KMEANS, KMEANS_PATH, False),
     ]
 
