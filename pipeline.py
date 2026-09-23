@@ -44,15 +44,15 @@ from utils.constants import (
     KMEANS_PATH,
     LSTM_PATH,
     LSTM_PATH_AUG,
-    MATRIZ_KMEANS_PATH,
-    MATRIZ_LSTM_PATH,
+    MATRIZ_PATH,
+    N_AUMENTOS,
     OUTPUTS_DIR,
     PARAM_GRID_KMEANS,
     PARAM_GRID_LSTM,
-    PREDICOES_KMEANS_PATH,
-    PREDICOES_LSTM_PATH,
+    PREDICOES_PATH,
     SEED,
 )
+from utils.utils import _salvar_log_treino
 
 tf.keras.backend.clear_session()
 
@@ -220,21 +220,35 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         cv=cv,
         scoring=scoring_method,
         n_jobs=-1,
-        verbose=2
+        verbose=1
     )
     grid.fit(X_fit, y_fit, groups=groups)
     return grid.best_estimator_, grid.best_params_, grid.best_score_
 
 
 
-def avaliar_modelo_teste(model_name, model, best_params, label_encoder, X_test, y_test,
-                         usa_predict_proba=True,
-                         predicoes_path=PREDICOES_LSTM_PATH,
-                         matriz_path=MATRIZ_LSTM_PATH):
+def avaliar_modelo_teste(
+    model_name,
+    model,
+    best_params,
+    label_encoder,
+    X_test,
+    y_test,
+    n_amostras_treino,
+    n_aumentos,
+    augmentation,
+    usa_predict_proba=True,
+):
     """
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo
     """
+    if augmentation:
+        model_name += '_aug'
+    predicoes_path = PREDICOES_PATH % model_name
+    matriz_path = MATRIZ_PATH % model_name
+
+
     # Realiza as predições do modelo
     if usa_predict_proba:
         y_pred_probs = model.predict_proba(X_test, verbose=0)
@@ -252,6 +266,8 @@ def avaliar_modelo_teste(model_name, model, best_params, label_encoder, X_test, 
     f1_mac = f1_score(y_test_encoded, y_pred, average="macro", zero_division=0)
     report_text = str(classification_report(y_test, y_pred_str, zero_division=0, output_dict=False))
 
+
+    _salvar_log_treino(model_name, acc, f1_mac, n_amostras_treino, augmentation, n_aumentos)
     # Salva resultados em outputs/
     file_ = open(f'{OUTPUTS_DIR}/results_{model_name}.txt', 'w')
     file_.truncate(0)
@@ -295,9 +311,9 @@ def avaliar_modelo_teste(model_name, model, best_params, label_encoder, X_test, 
 if __name__ == "__main__":
     # TODO: Adicionar os outros modelos para o treinamento
     models = [
-        # Modelo, Hiperparametros, Path binário, Usar Augmentation?
-        ('lstm', PARAM_GRID_LSTM, LSTM_PATH, False),
+        # Modelo, Hiperparametros, Path binário, Usar Augmentation
         ('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
+        ('lstm', PARAM_GRID_LSTM, LSTM_PATH, False),
         ('kmeans', PARAM_GRID_KMEANS, KMEANS_PATH, False),
     ]
 
@@ -308,7 +324,11 @@ if __name__ == "__main__":
     X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
         x_fit=X_train, y_fit=y_train, groups_fit=groups_train
     )
-    #X_aug, y_aug = gerar_amostras_aumentadas(X_train, y_train)
+    print(X_train.shape)
+    print(y_train.shape)
+    X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
+        X_train.tolist(), y_train.tolist(), groups_train.tolist(), n_aumentos=N_AUMENTOS
+    )
 
     label_encoder = LabelEncoder()
     y_train_encoded = label_encoder.fit_transform(y_train)
@@ -320,6 +340,11 @@ if __name__ == "__main__":
     print("Shape Labels de Treino: ", y_train.shape)
     print("Shape Grupos de Treino: ", groups_train.shape)
 
+    print("Shape Dados  de Treino Augmentado: ", X_aug.shape)
+    print("Shape Labels de Treino Augmentado: ", y_aug.shape)
+    print("Shape Grupos de Treino Augmentado: ", group_aug.shape)
+
+
     print("Shape Dados  de Validação: ", X_val.shape)
     print("Shape Labels de Validação: ", y_val.shape)
     print("Shape Grupos de Validação: ", groups_val.shape)
@@ -328,9 +353,6 @@ if __name__ == "__main__":
     print("Shape Labels de Teste: ", y_test.shape)
     print("Shape Grupos de Teste: ", groups_test.shape)
 
-    # TODO Adicionar o Data Augmentation aqui para validar os modelos
-    
-    input_shape = (X_train.shape[1], X_train.shape[2])
 
     # F1-Score Macro como métrica para
     # garantir os melhores parâmetros
@@ -338,6 +360,13 @@ if __name__ == "__main__":
     # classes com o mesmo peso para todas as classes
     scoring_method = "f1_macro"
     for model_name, params, path_model, usar_augmentation in models:
+
+        if usar_augmentation:
+            x_fit, y_fit, group_fit = X_aug, label_encoder.transform(y_aug), group_aug
+        else:
+            x_fit, y_fit, group_fit = X_train, y_train_encoded, groups_train
+
+        input_shape = (x_fit.shape[1], x_fit.shape[2])
         match(model_name):
             case "lstm":
                 # Configuração de Early Stopping para evitar
@@ -362,34 +391,18 @@ if __name__ == "__main__":
 
         eh_modelo_keras = model_name == "lstm"
 
-        # LSTM precisa reservar dados de validação pro EarlyStopping; KMeans/RF não usa
-        # validação separada, então treina com o dataset de treino completo.
-        if eh_modelo_keras:
-            x_fit, y_fit, groups_fit = X_train_reduzido, y_train_reduzido_encoded, groups_train_reduzido
-        else:
-            x_fit, y_fit, groups_fit = X_train, y_train_encoded, groups_train
-
         # Aplica o Grid Search no modelo
-        #if usar_augmentation:
-        #    x_fit, y_fit = X_aug, label_encoder.transform(y_aug)
-        #else:
-
         best_model, best_params, best_score = applyGridSearch(
             model_used=model,
             params=params,
             scoring_method=scoring_method,
             X_fit=x_fit,
             y_fit=y_fit,
-            groups=groups_fit,
+            groups=group_fit,
             X_val=X_val,
             y_val=y_val_encoded,
             usa_validation_data=eh_modelo_keras,
         )
-
-        if model_name == "lstm":
-            predicoes_path, matriz_path = PREDICOES_LSTM_PATH, MATRIZ_LSTM_PATH
-        else:
-            predicoes_path, matriz_path = PREDICOES_KMEANS_PATH, MATRIZ_KMEANS_PATH
 
         # Realiza o teste e grava métricas em arquivos
         avaliar_modelo_teste(
@@ -399,9 +412,10 @@ if __name__ == "__main__":
             label_encoder=label_encoder,
             X_test=X_test,
             y_test=y_test,
+            n_amostras_treino=x_fit.shape[0],
+            n_aumentos=N_AUMENTOS,
+            augmentation=usar_augmentation,
             usa_predict_proba=eh_modelo_keras,
-            predicoes_path=predicoes_path,
-            matriz_path=matriz_path,
         )
 
         if eh_modelo_keras:
