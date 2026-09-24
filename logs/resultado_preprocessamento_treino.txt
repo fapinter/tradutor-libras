@@ -1,0 +1,1 @@
+resolution;sharpening;clahe;total_frames;frames_at_least_one_hand;frames_both_hands;frames_no_hands;left_detected;right_detected;success_rate;failure_rate;both_hands_rate;left_rate;right_rate;invalid_images;elapsed_seconds

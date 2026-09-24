@@ -1,7 +1,4 @@
 import os
-import re
-import time
-
 import mediapipe as mp
 import numpy as np
 import pandas as pd
@@ -28,12 +25,15 @@ from utils.constants_cv import (
 from utils.utils import extrair_ambas_maos
 
 
+def preprocessImage(image_path)
+
 def extract_features_from_directory(
     dataset_root_dir,
     output_path,
     landmarker_path=LANDMARKER_PATH,
     sequence_length=SEQUENCE_LENGTH,
     step=DEFAULT_STEP,
+    preprocess=False
 ):
     """
     Varre os diretórios de frames e extrai sequências 3D de coordenadas normalizadas de AMBAS as mãos para o LSTM.
@@ -55,7 +55,12 @@ def extract_features_from_directory(
         running_mode=VisionRunningMode.IMAGE,
         num_hands=NUM_HANDS,  # detectar até 2 mãos por frame
     )
-    file_ = open(f'{LOGS_DIR}/{output_path[:-4]}.txt', 'w')
+    if preprocess:
+        feature_logs_path = f'{LOGS_DIR}/{output_path[:-4]}_preprocess.txt'
+        output_path = output_path
+    else:
+        feature_logs_path = f'{LOGS_DIR}/{output_path[:-4]}.txt'
+    file_ = open(feature_logs_path, 'w')
     file_.truncate(0)
     with HandLandmarker.create_from_options(options) as landmarker:
         for gesto in sorted(os.listdir(dataset_root_dir)):
@@ -196,7 +201,7 @@ def extract_features_from_directory(
 
     df.to_csv(output_path, index=False)
     print(f"Dataset exportado: {output_path}")
-    return features, labels, np.array(groups)
+    return num_frames_dup, num_frames_padding, num_frames_totais
 
 def import_from_csv(filepath: str):
     """
@@ -235,19 +240,28 @@ def import_from_csv(filepath: str):
 
 
 if __name__ == "__main__":
+    DATASET_TREINO_PREPROCESS = "dataset/treino_pre.csv"
+    DATASET_TESTE_PREPROCESS = "dataset/teste_pre.csv"
+
     print('Gerando dataset de TREINO')
-    extract_features_from_directory(
+    num_frames_dup, num_frames_padding, num_frames_totais = extract_features_from_directory(
         dataset_root_dir=FRAMES_TREINO_DIR,
         sequence_length=SEQUENCE_LENGTH,
         step=DEFAULT_STEP,
-        output_path=DATASET_TREINO_CSV,
+        output_path=DATASET_TREINO_PREPROCESS,
+        preprocess=True,
+        clahe=True
     )
 
 
     print('Gerando dataset de TESTE')
-    extract_features_from_directory(
+    num_frames_dup, num_frames_padding, num_frames_totais = extract_features_from_directory(
         dataset_root_dir=FRAMES_TESTE_DIR,
         sequence_length=SEQUENCE_LENGTH,
         step=DEFAULT_STEP,
-        output_path=DATASET_TESTE_CSV,
+        output_path=DATASET_TESTE_PREPROCESS,
+        preprocess=True,
+        clahe=True
     )
+    with open(f'{LOGS_DIR}/extracao.csv', 'w') as f:
+        f.write('')
