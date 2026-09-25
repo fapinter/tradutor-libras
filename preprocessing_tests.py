@@ -33,7 +33,6 @@ def resize_with_padding(image, target_size):
     """
 
     target_width, target_height = target_size
-
     original_height, original_width = image.shape[:2]
 
     # Escala necessária para caber completamente no target
@@ -80,20 +79,14 @@ def apply_clahe(image):
     """
     Aplica CLAHE somente no canal de luminosidade.
     """
-
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-
     l, a, b = cv2.split(lab)
-
     clahe = cv2.createCLAHE(
         clipLimit=2.0,
         tileGridSize=(8, 8)
     )
-
     l = clahe.apply(l)
-
     lab = cv2.merge((l, a, b))
-
     return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
 
@@ -107,12 +100,7 @@ def apply_sharpening(image):
         [-1, 5, -1],
         [0, -1,  0]
     ])
-
-    return cv2.filter2D(
-        image,
-        -1,
-        kernel
-    )
+    return cv2.filter2D(image, -1, kernel)
 
 
 def preprocess_frame(
@@ -163,28 +151,6 @@ def process_dataset(
 
     Um frame é considerado FALHA somente se nenhuma mão
     for detectada.
-
-    Parameters
-    ----------
-    txt_path : str
-        Caminho do arquivo TXT onde os resultados serão gravados.
-
-    resolution : tuple
-        Exemplo: (1280, 720)
-
-    use_sharpening : bool
-        Ativa/desativa sharpening.
-
-    use_clahe : bool
-        Ativa/desativa CLAHE.
-
-    root_path : str
-        Diretório raiz do dataset.
-
-    Returns
-    -------
-    dict
-        Resumo da execução.
     """
 
     options = HandLandmarkerOptions(
@@ -204,7 +170,6 @@ def process_dataset(
     total_frames = 0
     frames_at_least_one_detected = 0
     frames_none_detected = 0
-    invalid_images = 0
     start_time = perf_counter()
 
     with HandLandmarker.create_from_options(options) as landmarker:
@@ -217,7 +182,6 @@ def process_dataset(
                     frame = cv2.imread(str(image_path))
 
                     if frame is None:
-                        invalid_images += 1
                         continue
 
                     total_frames += 1
@@ -243,7 +207,6 @@ def process_dataset(
         success_rate = (frames_at_least_one_detected / total_frames * 100)
         failure_rate = (frames_none_detected / total_frames * 100)
 
-
     else:
         success_rate = 0
         failure_rate = 0
@@ -261,7 +224,6 @@ def process_dataset(
         "frames_no_hands": (frames_none_detected),
         "success_rate": success_rate,
         "failure_rate": failure_rate,
-        "invalid_images": invalid_images,
         "elapsed_seconds": elapsed_time
     }
 
@@ -269,25 +231,15 @@ def process_dataset(
     # GRAVA RESULTADO
     # ========================================================
 
-    write_header = (
-        not txt_path.exists()
-        or txt_path.stat().st_size == 0
-    )
+    write_header = (not txt_path.exists() or txt_path.stat().st_size == 0)
 
     with open(txt_path, "a", encoding="utf-8") as file:
 
         if write_header:
             file.write(
-                "resolution;"
-                "sharpening;"
-                "clahe;"
-                "total_frames;"
-                "frames_at_least_one_hand;"
-                "frames_no_hands;"
-                "success_rate;"
-                "failure_rate;"
-                "invalid_images;"
-                "elapsed_seconds\n"
+                "resolution;sharpening;clahe;total_frames;"
+                "frames_at_least_one_hand;frames_no_hands;success_rate;"
+                "failure_rate;elapsed_seconds\n"
             )
 
         file.write(
@@ -299,7 +251,6 @@ def process_dataset(
             f"{result['frames_no_hands']};"
             f"{result['success_rate']:.4f};"
             f"{result['failure_rate']:.4f};"
-            f"{result['invalid_images']};"
             f"{result['elapsed_seconds']:.2f}\n"
         )
 
@@ -310,23 +261,13 @@ def process_dataset(
     print("\n" + "=" * 70)
     print("PROCESSAMENTO FINALIZADO")
     print("=" * 70)
-
     print(f"Resolução:       {resolution[0]}x{resolution[1]}")
     print(f"Sharpening:      {use_sharpening}")
     print(f"CLAHE:           {use_clahe}")
     print("-" * 70)
     print(f"Total de frames: {total_frames}")
-    print(
-        f"Pelo menos 1 mão: "
-        f"{frames_at_least_one_detected} "
-        f"({success_rate:.2f}%)"
-    )
-    print(
-        f"Nenhuma mão:      "
-        f"{frames_none_detected} "
-        f"({failure_rate:.2f}%)"
-    )
-    print(f"Imagens inválidas: {invalid_images}")
+    print(f"Pelo menos 1 mão: {frames_at_least_one_detected} ({success_rate:.2f}%)")
+    print(f"Nenhuma mão:{frames_none_detected} ({failure_rate:.2f}%)")
     print(f"Tempo: "f"{elapsed_time:.2f} segundos")
     print("=" * 70)
 
@@ -345,9 +286,7 @@ def run_preprocessing_grid(txt_path, root_path):
         (640, 360),
         (480, 270)
     ]
-
     sharpening_options = [False, True]
-
     clahe_options = [False, True]
 
     configurations = list(
@@ -369,12 +308,7 @@ def run_preprocessing_grid(txt_path, root_path):
     all_results = []
 
     for index, (resolution, use_sharpening, use_clahe) in enumerate(configurations, start=1):
-
-        print("\n")
-        print(
-            f"[{index}/{len(configurations)}] "
-            f"Executando configuração..."
-        )
+        print(f"\n[{index}/{len(configurations)}] Executando configuração...")
 
         result = process_dataset(
             txt_path=txt_path,
