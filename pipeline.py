@@ -11,6 +11,7 @@ Métricas de Avaliação:
 
 import pickle
 
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -421,8 +422,7 @@ if __name__ == "__main__":
         if eh_modelo_keras:
             best_model.model_.save(path_model)
         else:
-            with open(path_model, "wb") as f:
-                pickle.dump(best_model, f)
+            joblib.dump(best_model, path_model, compress=3)
             print(f"[OK] Modelo {model_name} salvo em '{path_model}'")
 
     # Armazena o LabelEncoder em disco

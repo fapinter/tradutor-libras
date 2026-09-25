@@ -1,30 +1,30 @@
 Total de Amostras de Teste: 80
-Acurácia no Teste: 28.75%
-F1-Score Macro:             23.60%
-Hiperparametros do kmeans: dict_items([('compactar__n_clusters', 110), ('rf__n_estimators', 200)])
+Acurácia no Teste: 33.75%
+F1-Score Macro:             28.94%
+Hiperparametros do kmeans: dict_items([('compactar__n_clusters', 110), ('rf__n_estimators', 400)])
 Relatório de Classificação por Classe:
               precision    recall  f1-score   support
 
-   acontecer       0.25      0.43      0.32         7
+   acontecer       0.17      0.29      0.21         7
        aluno       0.00      0.00      0.00         3
-     amarelo       0.50      0.50      0.50         4
-     america       0.71      1.00      0.83         5
-  aproveitar       0.25      0.17      0.20         6
-        bala       0.00      0.00      0.00         6
-       banco       0.20      0.20      0.20         5
-    banheiro       0.67      0.40      0.50         5
+     amarelo       0.40      0.50      0.44         4
+     america       0.83      1.00      0.91         5
+  aproveitar       0.20      0.33      0.25         6
+        bala       0.50      0.33      0.40         6
+       banco       0.00      0.00      0.00         5
+    banheiro       1.00      0.40      0.57         5
      barulho       0.33      0.33      0.33         3
-    conhecer       0.14      0.20      0.17         5
-     espelho       0.20      0.33      0.25         3
-     esquina       0.25      0.33      0.29         3
-       filho       0.00      0.00      0.00         5
+    conhecer       0.33      0.20      0.25         5
+     espelho       0.17      0.33      0.22         3
+     esquina       0.33      0.33      0.33         3
+       filho       0.50      0.20      0.29         5
         maca       0.00      0.00      0.00         2
-        medo       0.00      0.00      0.00         3
+        medo       0.33      0.33      0.33         3
         ruim       1.00      0.25      0.40         4
-        sapo       0.36      0.80      0.50         5
+        sapo       0.38      1.00      0.56         5
       vacina       0.00      0.00      0.00         4
      vontade       0.00      0.00      0.00         2
 
-    accuracy                           0.29        80
-   macro avg       0.26      0.26      0.24        80
-weighted avg       0.28      0.29      0.26        80
+    accuracy                           0.34        80
+   macro avg       0.34      0.31      0.29        80
+weighted avg       0.37      0.34      0.32        80

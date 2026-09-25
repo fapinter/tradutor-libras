@@ -101,6 +101,4 @@ LSTM_PATH = "models/lstm_sign_model.keras"
 LSTM_PATH_AUG = "models/lstm_sign_model_aug.keras"
 ENCODER_PATH = "models/label_encoder.pkl"
 
-PREDICOES_KMEANS_PATH = "outputs/predicoes_kmeans.txt"
-MATRIZ_KMEANS_PATH = "outputs/matriz_kmeans.png"
 KMEANS_PATH = "models/kmeans_sign_model.pkl"
