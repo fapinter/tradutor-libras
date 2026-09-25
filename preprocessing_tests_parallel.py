@@ -111,12 +111,26 @@ def apply_sharpening(image):
 
     return cv2.filter2D(image, -1, kernel)
 
+def apply_blur(image, blur_type=None, kernel_size=3):
+    if blur_type == None:
+        return image
+
+    match(blur_type):
+        case "median":
+            return cv2.medianBlur(image,kernel_size)
+        case "gaussian":
+            return cv2.medianBlur(image, kernel_size)
+        case "bilateral":
+            return cv2.bilateralFilter(image,d=kernel_size,sigmaColor=75,sigmaSpace=75)
+
 
 def preprocess_frame(
     frame,
     resolution,
     use_clahe=False,
-    use_sharpening=False
+    use_sharpening=False,
+    blur_type=None,
+    blur_kernel_size=3
 ):
     """
     Pipeline:
@@ -129,6 +143,12 @@ def preprocess_frame(
     frame = resize_with_padding(
         frame,
         resolution
+    )
+
+    frame = apply_blur(
+        frame,
+        blur_type=blur_type,
+        kernel_size=blur_kernel_size
     )
 
     if use_clahe:
@@ -204,6 +224,8 @@ def process_dataset(
     resolution,
     use_sharpening,
     use_clahe,
+    blur_type,
+    blur_kernel_size,
     root_path
 ):
     """
@@ -220,6 +242,8 @@ def process_dataset(
         resolution=resolution,
         use_sharpening=use_sharpening,
         use_clahe=use_clahe,
+        blur_type=blur_type,
+        blur_kernel_size=blur_kernel_size,
         root_path=root_path
     )
 
@@ -236,6 +260,8 @@ def _process_dataset_core(
     resolution,
     use_sharpening,
     use_clahe,
+    blur_type,
+    blur_kernel_size,
     root_path
 ):
     """
@@ -286,7 +312,9 @@ def _process_dataset_core(
                 frame=frame,
                 resolution=resolution,
                 use_clahe=use_clahe,
-                use_sharpening=use_sharpening
+                use_sharpening=use_sharpening,
+                blur_type=blur_type,
+                blur_kernel_size=blur_kernel_size
             )
 
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -328,6 +356,8 @@ def _process_dataset_core(
         "resolution": f"{resolution[0]}x{resolution[1]}",
         "sharpening": use_sharpening,
         "clahe": use_clahe,
+        "blur_type": blur_type,
+        "blur_kernel_size": blur_kernel_size,
         "total_frames": total_frames,
         "frames_at_least_one_hand": (
             frames_at_least_one_detected
@@ -373,6 +403,8 @@ def append_result_to_file(txt_path, result):
                 "resolution;"
                 "sharpening;"
                 "clahe;"
+                "blur_type;"
+                "blur_kernel_size;"
                 "total_frames;"
                 "frames_at_least_one_hand;"
                 "frames_no_hands;"
@@ -385,6 +417,8 @@ def append_result_to_file(txt_path, result):
             f"{result['resolution']};"
             f"{result['sharpening']};"
             f"{result['clahe']};"
+            f"{result['blur_type']};"
+            f"{result['blur_kernel_size']};"
             f"{result['total_frames']};"
             f"{result['frames_at_least_one_hand']};"
             f"{result['frames_no_hands']};"
@@ -410,6 +444,12 @@ def print_result(result):
 
     print(
         f"CLAHE:            {result['clahe']}"
+    )
+    print(
+        f"Blur Type:        {result['blur_type']}"
+    )
+    print(
+        f"Blur Kernel Size: {result['blur_kernel_size']}"
     )
 
     print("-" * 70)
@@ -457,6 +497,8 @@ def _run_configuration_worker(args):
         resolution,
         use_sharpening,
         use_clahe,
+        blur_type,
+        blur_kernel_size,
         root_path
     ) = args
 
@@ -477,7 +519,9 @@ def _run_configuration_worker(args):
         resolution=resolution,
         use_sharpening=use_sharpening,
         use_clahe=use_clahe,
-        root_path=root_path
+        root_path=root_path,
+        blur_type=blur_type,
+        blur_kernel_size=blur_kernel_size
     )
 
     result["worker_pid"] = os.getpid()
@@ -531,21 +575,18 @@ def run_preprocessing_grid(
         (480, 270)
     ]
 
-    sharpening_options = [
-        False,
-        True
-    ]
-
-    clahe_options = [
-        False,
-        True
-    ]
+    sharpening_options = [False]
+    clahe_options = [False]
+    blur_type_options = ["median", "gaussian", "bilateral"]
+    blur_kernel_options = [3,5]
 
     configurations = list(
         product(
             resolutions,
             sharpening_options,
-            clahe_options
+            clahe_options,
+            blur_type_options,
+            blur_kernel_options
         )
     )
 
@@ -583,16 +624,12 @@ def run_preprocessing_grid(
             resolution,
             use_sharpening,
             use_clahe,
+            blur_type,
+            blur_kernel_size,
             str(root_path)
         )
-        for index, (
-            resolution,
-            use_sharpening,
-            use_clahe
-        ) in enumerate(
-            configurations,
-            start=1
-        )
+        for index, (resolution,use_sharpening,use_clahe, blur_type, blur_kernel_size)
+        in enumerate(configurations, start=1)
     ]
 
     all_results = []
@@ -668,8 +705,8 @@ def run_preprocessing_grid(
     return all_results
 
 if __name__ == "__main__":
-    RESULTS_FILE_TREINO = "logs/resultado_preprocessamento_treino.txt"
-    RESULTS_FILE_TESTE ="logs/resultado_preprocessamento_teste.txt"
+    RESULTS_FILE_TREINO = "logs/resultado_preprocessamento_treino_blur.txt"
+    RESULTS_FILE_TESTE ="logs/resultado_preprocessamento_teste_blur.txt"
 
     # Número de combinações rodando em paralelo
     MAX_WORKERS = 4
