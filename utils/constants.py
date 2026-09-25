@@ -69,6 +69,12 @@ PARAM_GRID_KMEANS = {
     "rf__n_estimators": [200, 400],
 }
 
+# Hiperparametros Grid Search K-Means + KNN
+PARAM_GRID_KMEANS_KNN = {
+    "compactar__n_clusters": [50, 70, 110],
+    "knn__n_neighbors": [1, 3, 5],
+}
+
 # Captura de Vídeo em Tempo Real
 
 FONTE = 0
@@ -102,3 +108,4 @@ LSTM_PATH_AUG = "models/lstm_sign_model_aug.keras"
 ENCODER_PATH = "models/label_encoder.pkl"
 
 KMEANS_PATH = "models/kmeans_sign_model.pkl"
+KMEANS_KNN_PATH = "models/kmeans_knn_sign_model.pkl"

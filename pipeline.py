@@ -27,6 +27,7 @@ from sklearn.metrics import (
     f1_score,
 )
 from sklearn.model_selection import StratifiedGroupKFold, GridSearchCV
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import f1_score, accuracy_score
@@ -42,6 +43,7 @@ from utils.constants import (
     DATASET_TESTE_CSV,
     DATASET_TREINO_CSV,
     ENCODER_PATH,
+    KMEANS_KNN_PATH,
     KMEANS_PATH,
     LSTM_PATH,
     LSTM_PATH_AUG,
@@ -49,6 +51,7 @@ from utils.constants import (
     N_AUMENTOS,
     OUTPUTS_DIR,
     PARAM_GRID_KMEANS,
+    PARAM_GRID_KMEANS_KNN,
     PARAM_GRID_LSTM,
     PREDICOES_PATH,
     SEED,
@@ -184,6 +187,14 @@ def criar_pipeline_kmeans():
     ])
 
 
+def criar_pipeline_kmeans_knn():
+    return Pipeline([
+        ("compactar", SequenciaParaHistograma()),
+        ("scaler", StandardScaler()),
+        ("knn", KNeighborsClassifier(weights="distance")),
+    ])
+
+
 def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val,
                     usa_validation_data=True):
     """
@@ -316,6 +327,7 @@ if __name__ == "__main__":
         ('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
         ('lstm', PARAM_GRID_LSTM, LSTM_PATH, False),
         ('kmeans', PARAM_GRID_KMEANS, KMEANS_PATH, False),
+        ('kmeans_knn', PARAM_GRID_KMEANS_KNN, KMEANS_KNN_PATH, False),
     ]
 
     X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_CSV)
@@ -387,6 +399,8 @@ if __name__ == "__main__":
                 )
             case "kmeans":
                 model = criar_pipeline_kmeans()
+            case "kmeans_knn":
+                model = criar_pipeline_kmeans_knn()
             case default:
                 pass
 
