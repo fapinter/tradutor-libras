@@ -83,16 +83,9 @@ def apply_clahe(image):
     """
 
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-
     l, a, b = cv2.split(lab)
-
-    clahe = cv2.createCLAHE(
-        clipLimit=2.0,
-        tileGridSize=(8, 8)
-    )
-
+    clahe = cv2.createCLAHE(clipLimit=2.0,tileGridSize=(8, 8))
     l = clahe.apply(l)
-
     lab = cv2.merge((l, a, b))
 
     return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
@@ -247,11 +240,7 @@ def process_dataset(
         root_path=root_path
     )
 
-    append_result_to_file(
-        txt_path,
-        result
-    )
-
+    append_result_to_file(txt_path, result)
     print_result(result)
     return result
 
@@ -348,7 +337,6 @@ def _process_dataset_core(
         )
 
     else:
-
         success_rate = 0
         failure_rate = 0
 
@@ -359,12 +347,8 @@ def _process_dataset_core(
         "blur_type": blur_type,
         "blur_kernel_size": blur_kernel_size,
         "total_frames": total_frames,
-        "frames_at_least_one_hand": (
-            frames_at_least_one_detected
-        ),
-        "frames_no_hands": (
-            frames_none_detected
-        ),
+        "frames_at_least_one_hand": frames_at_least_one_detected,
+        "frames_no_hands": frames_none_detected,
         "success_rate": success_rate,
         "failure_rate": failure_rate,
         "elapsed_seconds": elapsed_time
@@ -381,22 +365,11 @@ def append_result_to_file(txt_path, result):
     """
 
     txt_path = Path(txt_path)
+    txt_path.parent.mkdir(parents=True, exist_ok=True)
 
-    txt_path.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+    write_header = (not txt_path.exists() or txt_path.stat().st_size == 0)
 
-    write_header = (
-        not txt_path.exists()
-        or txt_path.stat().st_size == 0
-    )
-
-    with open(
-        txt_path,
-        "a",
-        encoding="utf-8"
-    ) as file:
+    with open(txt_path, "a", encoding="utf-8") as file:
 
         if write_header:
             file.write(
@@ -405,12 +378,7 @@ def append_result_to_file(txt_path, result):
                 "clahe;"
                 "blur_type;"
                 "blur_kernel_size;"
-                "total_frames;"
-                "frames_at_least_one_hand;"
-                "frames_no_hands;"
-                "success_rate;"
-                "failure_rate;"
-                "elapsed_seconds\n"
+                "success_rate;\n"
             )
 
         file.write(
@@ -419,63 +387,23 @@ def append_result_to_file(txt_path, result):
             f"{result['clahe']};"
             f"{result['blur_type']};"
             f"{result['blur_kernel_size']};"
-            f"{result['total_frames']};"
-            f"{result['frames_at_least_one_hand']};"
-            f"{result['frames_no_hands']};"
             f"{result['success_rate']:.4f};"
-            f"{result['failure_rate']:.4f};"
-            f"{result['elapsed_seconds']:.2f}\n"
         )
 
 
 def print_result(result):
-
     print("\n" + "=" * 70)
     print("CONFIGURAÇÃO FINALIZADA")
     print("=" * 70)
-
-    print(
-        f"Resolução:        {result['resolution']}"
-    )
-
-    print(
-        f"Sharpening:       {result['sharpening']}"
-    )
-
-    print(
-        f"CLAHE:            {result['clahe']}"
-    )
-    print(
-        f"Blur Type:        {result['blur_type']}"
-    )
-    print(
-        f"Blur Kernel Size: {result['blur_kernel_size']}"
-    )
-
-    print("-" * 70)
-
-    print(
-        f"Total de frames:  "
-        f"{result['total_frames']}"
-    )
-
-    print(
-        f"Pelo menos 1 mão: "
-        f"{result['frames_at_least_one_hand']} "
-        f"({result['success_rate']:.2f}%)"
-    )
-
-    print(
-        f"Nenhuma mão:      "
-        f"{result['frames_no_hands']} "
-        f"({result['failure_rate']:.2f}%)"
-    )
-
-    print(
-        f"Tempo:            "
-        f"{result['elapsed_seconds']:.2f} segundos"
-    )
-
+    print(f"Resolução:        {result['resolution']}")
+    print(f"Sharpening:       {result['sharpening']}")
+    print(f"CLAHE:            {result['clahe']}")
+    print(f"Blur Type:        {result['blur_type']}")
+    print(f"Blur Kernel Size: {result['blur_kernel_size']}")
+    print(f"Total de frames:  {result['total_frames']}")
+    print(f"Pelo menos 1 mão: {result['frames_at_least_one_hand']} ({result['success_rate']:.2f}%)")
+    print(f"Nenhuma mão: {result['frames_no_hands']} ({result['failure_rate']:.2f}%)")
+    print(f"Tempo: {result['elapsed_seconds']:.2f} segundos")
     print("=" * 70)
 
 
@@ -505,11 +433,8 @@ def _run_configuration_worker(args):
     configure_worker()
 
     print(
-        f"[WORKER {os.getpid()}] "
-        f"[{index}/{total_configurations}] "
-        f"{resolution[0]}x{resolution[1]} | "
-        f"sharpening={use_sharpening} | "
-        f"clahe={use_clahe}",
+        f"[WORKER {os.getpid()}] [{index}/{total_configurations}] {resolution[0]}x{resolution[1]} | "
+        f"sharpening={use_sharpening} | clahe={use_clahe} | blur_type={blur_type} | blur_kernel_size={blur_kernel_size}",
         flush=True
     )
 
@@ -568,16 +493,16 @@ def run_preprocessing_grid(
     """
 
     resolutions = [
-        (1920, 1080),
+        #(1920, 1080),
         (1280, 720),
         (960, 540),
-        (640, 360),
-        (480, 270)
+        #(640, 360),
+        #(480, 270)
     ]
 
-    sharpening_options = [False]
-    clahe_options = [False]
-    blur_type_options = ["median", "gaussian", "bilateral"]
+    sharpening_options = [True, False]
+    clahe_options = [True, False]
+    blur_type_options = ["median", "bilateral"]
     blur_kernel_options = [3,5]
 
     configurations = list(
@@ -591,32 +516,12 @@ def run_preprocessing_grid(
     )
 
     total_configurations = len(configurations)
-
-    print("\n")
-    print("=" * 70)
-    print("GRID DE PRÉ-PROCESSAMENTO PARALELA")
-    print("=" * 70)
-
-    print(
-        f"Total de configurações: "
-        f"{total_configurations}"
-    )
+    print(f"Total de configurações: {total_configurations}")
 
     print(
         f"Processos simultâneos: "
         f"{max_workers if max_workers is not None else 'padrão'}"
     )
-
-    print("=" * 70)
-
-    # --------------------------------------------------------
-    # Importante:
-    # Não apagamos automaticamente o arquivo.
-    #
-    # Se quiser começar um experimento do zero, apague o TXT
-    # antes da execução.
-    # --------------------------------------------------------
-
     tasks = [
         (
             index,
@@ -631,82 +536,42 @@ def run_preprocessing_grid(
         for index, (resolution,use_sharpening,use_clahe, blur_type, blur_kernel_size)
         in enumerate(configurations, start=1)
     ]
-
     all_results = []
 
-    grid_start = perf_counter()
-
-    with ProcessPoolExecutor(
-        max_workers=max_workers,
-        initializer=configure_worker
-    ) as executor:
-
+    with ProcessPoolExecutor(max_workers=max_workers, initializer=configure_worker) as executor:
         futures = [
             executor.submit(
                 _run_configuration_worker,
                 task
-            )
-            for task in tasks
+            ) for task in tasks
         ]
 
-        for completed, future in enumerate(
-            as_completed(futures),
-            start=1
-        ):
-
+        for completed, future in enumerate(as_completed(futures), start=1):
             try:
 
                 index, result = future.result()
 
                 # Somente o processo principal escreve no arquivo.
-                append_result_to_file(
-                    txt_path,
-                    result
-                )
-
+                append_result_to_file(txt_path,result)
                 all_results.append(result)
 
                 print(
-                    f"\n[{completed}/{total_configurations}] "
-                    f"Configuração {index} concluída.",
+                    f"\n[{completed}/{total_configurations}] Configuração {index} concluída.",
                     flush=True
                 )
-
                 print_result(result)
 
             except Exception as exc:
-
                 print(
                     f"\nERRO em uma configuração: "
                     f"{type(exc).__name__}: {exc}",
                     flush=True
                 )
-
-    total_elapsed = perf_counter() - grid_start
-
-    print("\n")
-    print("=" * 70)
-    print("GRID FINALIZADO")
-    print("=" * 70)
-
-    print(
-        f"Configurações concluídas: "
-        f"{len(all_results)}/{total_configurations}"
-    )
-
-    print(
-        f"Tempo total: "
-        f"{total_elapsed:.2f} segundos "
-        f"({total_elapsed / 60:.2f} minutos)"
-    )
-
-    print("=" * 70)
-
     return all_results
 
 if __name__ == "__main__":
-    RESULTS_FILE_TREINO = "logs/resultado_preprocessamento_treino_blur.txt"
-    RESULTS_FILE_TESTE ="logs/resultado_preprocessamento_teste_blur.txt"
+    RESULTS_FILE_TREINO = "logs/resultado_preprocessamento_treino_blur_clahe.csv"
+    RESULTS_FILE_TESTE ="logs/resultado_preprocessamento_teste_blur_clahe.csv"
 
     # Número de combinações rodando em paralelo
     MAX_WORKERS = 4
