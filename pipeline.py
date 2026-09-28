@@ -250,12 +250,15 @@ if __name__ == "__main__":
     # TODO: Adicionar os outros modelos para o treinamento
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation
-        ('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
-        ('lstm', PARAM_GRID_LSTM, LSTM_PATH, False),
+        #('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
+        #('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
+        #('lstm', PARAM_GRID_LSTM, "models/lstm_processed_aug.keras", True),
+        ('lstm', PARAM_GRID_LSTM, "models/lstm_processed.keras", False),
     ]
-
-    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_CSV)
-    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_CSV)
+    dataset_treino_processado = "dataset/treino_preprocessed.csv"
+    dataset_teste_processado = "dataset/teste_preprocessed.csv"
+    X_train, y_train, groups_train = import_from_csv(dataset_treino_processado)
+    X_test, y_test, groups_test = import_from_csv(dataset_teste_processado)
 
 
     X_train, y_train, groups_train, X_val, y_val, groups_val = splitTrainValidation(
