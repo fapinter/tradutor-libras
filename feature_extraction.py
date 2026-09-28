@@ -1,10 +1,8 @@
 import os
-import re
-import time
-
 import mediapipe as mp
 import numpy as np
 import pandas as pd
+import cv2
 
 from utils.constants import (
     DATASET_TESTE_CSV,
@@ -28,12 +26,70 @@ from utils.constants_cv import (
 from utils.utils import extrair_ambas_maos
 
 
+def preprocessImage(image_path):
+    image = cv2.imread(str(image_path))
+    if image is None:
+        return None
+    # Padronização do tamanho de imagens
+    target_width = 1280
+    target_height = 720
+    original_height, original_width = image.shape[:2]
+    scale = min(
+        target_width / original_width,
+        target_height / original_height
+    )
+    new_width = int(original_width * scale)
+    new_height = int(original_height * scale)
+
+    if scale < 1:
+        interpolation = cv2.INTER_AREA
+    else:
+        interpolation = cv2.INTER_CUBIC
+
+    resized = cv2.resize(
+        image,
+        (new_width, new_height),
+        interpolation=interpolation
+    )
+
+    new_image = np.zeros(
+        (target_height, target_width, 3),
+        dtype=np.uint8
+    )
+
+    x_offset = (target_width - new_width) // 2
+    y_offset = (target_height - new_height) // 2
+
+    new_image[
+        y_offset:y_offset + new_height,
+        x_offset:x_offset + new_width
+    ] = resized
+
+    # Aplicação do Blur
+    blurred_image = cv2.bilateralFilter(
+        new_image, d=5, 
+        sigmaColor=75,
+        sigmaSpace=75
+    )
+
+    # Aplicação do Sharpening
+    kernel = np.array([
+        [0, -1, 0],
+        [-1, 5, -1],
+        [0, -1, 0]
+    ])
+    sharp_image = cv2.filter2D(blurred_image, -1, kernel)
+    return sharp_image
+
+    # Retornar a imagem
+
 def extract_features_from_directory(
     dataset_root_dir,
     output_path,
     landmarker_path=LANDMARKER_PATH,
     sequence_length=SEQUENCE_LENGTH,
     step=DEFAULT_STEP,
+    preprocess=False
 ):
     """
     Varre os diretórios de frames e extrai sequências 3D de coordenadas normalizadas de AMBAS as mãos para o LSTM.
@@ -55,8 +111,23 @@ def extract_features_from_directory(
         running_mode=VisionRunningMode.IMAGE,
         num_hands=NUM_HANDS,  # detectar até 2 mãos por frame
     )
-    file_ = open(f'{LOGS_DIR}/{output_path[:-4]}.txt', 'w')
-    file_.truncate(0)
+
+    is_train = True
+    if not str(os.path.basename(output_path)).startswith('treino'):
+        is_train = False
+    
+    if preprocess:
+        feature_logs_path = f"{LOGS_DIR}/{'treino' if is_train else 'teste'}_preprocess.txt"
+    else:
+        feature_logs_path = f'{LOGS_DIR}/{'treino' if is_train else 'teste'}.txt'
+
+    if not os.path.exists(feature_logs_path):
+        file_ = open(feature_logs_path, 'x')
+    else:
+        file_ = open(feature_logs_path, 'w')
+    frames_totais_global = 0
+    frames_detectados = 0
+    frames_padding_global = 0
     with HandLandmarker.create_from_options(options) as landmarker:
         for gesto in sorted(os.listdir(dataset_root_dir)):
             class_dir = os.path.join(dataset_root_dir, gesto)
@@ -82,6 +153,7 @@ def extract_features_from_directory(
                 if not frames:
                     continue
                 frames_totais += len(frames)
+                frames_totais_global += len(frames)
                 # ID usado para identificar o Grupo no StratifiedGroupKFold
                 video_id = f"{gesto}_{os.path.basename(video_dir)}"
                 video_landmarks = []
@@ -92,7 +164,15 @@ def extract_features_from_directory(
                     duplicado = False
                     frame_path = os.path.join(path_video, frame)
                     try:
-                        mp_image = mp.Image.create_from_file(frame_path)
+                        if preprocess:
+                            img = preprocessImage(frame_path)
+                            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                            mp_image = mp.Image(
+                                image_format=mp.ImageFormat.SRGB,
+                                data=img_rgb
+                            )
+                        else:
+                            mp_image = mp.Image.create_from_file(frame_path)
 
                         # Detecção das landmarks
                         results = landmarker.detect(mp_image)
@@ -102,10 +182,12 @@ def extract_features_from_directory(
                                 results.hand_landmarks,
                                 results.handedness,
                             )
+                            frames_detectados += 1
                             ultimo_valido = landmarks[:]
                         else:
                             duplicado = True
                             frames_duplicados += 1
+                            
                             # Forward-fill com o último frame válido
                             landmarks = ultimo_valido[:]
                         
@@ -134,6 +216,7 @@ def extract_features_from_directory(
                 if len(video_landmarks) < sequence_length:
                     num_frames_padding = sequence_length - len(video_landmarks)
                     frames_padding += num_frames_padding
+                    frames_padding_global += num_frames_padding
                     num_videos_padding += 1
                     video_landmarks.extend(
                         [ZEROS_FRAME for _ in range(num_frames_padding)]
@@ -146,10 +229,10 @@ def extract_features_from_directory(
                     groups.append(video_id)
                     sequencias_classe += 1
             print(f'Frames duplicados em {gesto}: {frames_duplicados}/{frames_totais}')
-            print(f'Frames de padding em {gesto}: {frames_padding}/{frames_totais}')
+            print(f'Frames de padding em {gesto}: {frames_padding}/{frames_totais+frames_padding}')
             print(f'Vídeos com padding em {gesto}: {num_videos_padding}/{len(videos_dir)}')
             file_.write(f'Frames duplicados em {gesto}: {frames_duplicados}/{frames_totais}\n')
-            file_.write(f'Frames de padding em {gesto}: {frames_padding}/{frames_totais}\n')
+            file_.write(f'Frames de padding em {gesto}: {frames_padding}/{frames_totais+frames_padding}\n')
             file_.write(f'Vídeos com padding em {gesto}: {num_videos_padding}/{len(videos_dir)}\n')
 
             if sequencias_classe == 0:
@@ -165,6 +248,8 @@ def extract_features_from_directory(
     print(f"\nExtração concluída! Total de {len(features)} amostras coletadas")
     file_.write(f'Shape das features: ({len(features)}, {len(features[0])}, {len(features[0][0])})\n')
     file_.write(f"\nExtração concluída! Total de {len(features)} amostras coletadas\n")
+    file_.write(f"\nDetecção de Frames: {frames_detectados}/{frames_totais_global} = {frames_detectados / frames_totais_global * 100}%")
+    file_.write(f"\nNúmero de Frames com Padding: {frames_padding_global}/{frames_totais_global+frames_padding_global} = {(frames_padding_global / (frames_totais_global + frames_padding_global) * 100)}%")
     file_.close()
     # Exportação para CSV dos dados
     print('Exportando dataset para csv')
@@ -196,7 +281,6 @@ def extract_features_from_directory(
 
     df.to_csv(output_path, index=False)
     print(f"Dataset exportado: {output_path}")
-    return features, labels, np.array(groups)
 
 def import_from_csv(filepath: str):
     """
@@ -235,6 +319,28 @@ def import_from_csv(filepath: str):
 
 
 if __name__ == "__main__":
+    DATASET_TREINO_PREPROCESS = "dataset/treino_preprocessed.csv"
+    DATASET_TESTE_PREPROCESS = "dataset/teste_preprocessed.csv"
+
+
+    #print('Gerando dataset de TREINO Preprocessados')
+    #extract_features_from_directory(
+    #    dataset_root_dir=FRAMES_TREINO_DIR,
+    #    sequence_length=SEQUENCE_LENGTH,
+    #    step=DEFAULT_STEP,
+    #    output_path=DATASET_TREINO_PREPROCESS,
+    #    preprocess=True
+    #)
+#
+#
+    #print('Gerando dataset de TESTE Preprocessados')
+    #extract_features_from_directory(
+    #    dataset_root_dir=FRAMES_TESTE_DIR,
+    #    sequence_length=SEQUENCE_LENGTH,
+    #    step=DEFAULT_STEP,
+    #    output_path=DATASET_TESTE_PREPROCESS,
+    #    preprocess=True
+    #)
     print('Gerando dataset de TREINO')
     extract_features_from_directory(
         dataset_root_dir=FRAMES_TREINO_DIR,
