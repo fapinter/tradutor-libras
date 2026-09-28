@@ -40,12 +40,13 @@ from utils.constants import (
     LSTM_PATH,
     LSTM_PATH_AUG,
     MATRIZ_PATH,
-    OUTPUTS_DIR,
     PARAM_GRID_LSTM,
     PREDICOES_PATH,
-    N_AUMENTOS
+    N_AUMENTOS,
+    RESULTS_PATH
 )
 from utils.utils import _salvar_log_treino
+import os
 
 tf.keras.backend.clear_session()
 
@@ -184,10 +185,11 @@ def avaliar_modelo_teste(
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo
     """
-    if augmentation:
-        model_name += '_aug'
+    model_name = model_name.replace(':', '_')
+
     predicoes_path = PREDICOES_PATH % model_name
     matriz_path = MATRIZ_PATH % model_name
+    results_path = RESULTS_PATH % model_name
 
 
     # Realiza as predições do modelo
@@ -207,17 +209,15 @@ def avaliar_modelo_teste(
 
     _salvar_log_treino(model_name, acc, f1_mac, n_amostras_treino, augmentation, n_aumentos)
     # Salva resultados em outputs/
-    file_ = open(f'{OUTPUTS_DIR}/results_{model_name}.txt', 'w')
-    file_.truncate(0)
-    file_.write(f"Total de Amostras de Teste: {len(y_test)}\n")
-    file_.write(f"Acurácia no Teste: {acc * 100:.2f}%\n")
-    file_.write(f"F1-Score Macro:             {f1_mac * 100:.2f}%\n")
+    with open(results_path, 'w') as file_:
+        file_.write(f"Total de Amostras de Teste: {len(y_test)}\n")
+        file_.write(f"Acurácia no Teste: {acc * 100:.2f}%\n")
+        file_.write(f"F1-Score Macro:             {f1_mac * 100:.2f}%\n")
 
-    file_.write(f"Hiperparametros do {model_name}: {best_params.items()}")
+        file_.write(f"Hiperparametros do {model_name}: {best_params.items()}")
 
-    file_.write("\nRelatório de Classificação por Classe:\n")
-    file_.write(report_text)
-    file_.close()
+        file_.write("\nRelatório de Classificação por Classe:\n")
+        file_.write(report_text)
 
     # Salvar predições brutas
     with open(predicoes_path, "w", encoding="utf-8") as f:
@@ -248,13 +248,18 @@ def avaliar_modelo_teste(
 
 if __name__ == "__main__":
     # TODO: Adicionar os outros modelos para o treinamento
+    LSTM_PROCESSED_AUG = "models/lstm_processed_aug.keras"
+    LSTM_PROCESSED = "models/lstm_processed.keras"
+
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation
-        #('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
-        #('lstm', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
-        #('lstm', PARAM_GRID_LSTM, "models/lstm_processed_aug.keras", True),
-        ('lstm', PARAM_GRID_LSTM, "models/lstm_processed.keras", False),
+        ('lstm:baseline_aug', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
+        ('lstm:baseline', PARAM_GRID_LSTM, LSTM_PATH, False),
+        ('lstm:processed_aug', PARAM_GRID_LSTM, LSTM_PROCESSED_AUG, True),
+        ('lstm:processed', PARAM_GRID_LSTM, LSTM_PROCESSED, False),
     ]
+
+    # Dataset é definido aqui, não possui opção de mudar
     dataset_treino_processado = "dataset/treino_preprocessed.csv"
     dataset_teste_processado = "dataset/teste_preprocessed.csv"
     X_train, y_train, groups_train = import_from_csv(dataset_treino_processado)
@@ -306,7 +311,9 @@ if __name__ == "__main__":
             x_fit, y_fit, group_fit = X_train, y_train_encoded, groups_train
 
         input_shape = (x_fit.shape[1], x_fit.shape[2])
-        match(model_name):
+
+        model_to_create = model_name.split(':')[0]
+        match(model_to_create):
             case "lstm":
                 # Configuração de Early Stopping para evitar
                 # a passagem por todas as 100 épocas em todos
