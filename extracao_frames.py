@@ -59,18 +59,20 @@ def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAME
 
     for gesto in gestos:
         path_gesto = os.path.join(pasta_videos, gesto)
+       
+        path_minds = os.path.join(path_gesto, 'minds')
 
-        videos = []
+        if not os.path.exists(path_minds):
+            print(f"Aviso: MINDS não encontrado para o gesto '{gesto}'.")
+            continue
 
-        # junta os vídeos de todos os datasets
-        for dt in os.listdir(path_gesto):
-            path_dt = os.path.join(path_gesto, dt)
+        videos = [
+            os.path.join(path_minds, video)
+            for video in sorted(os.listdir(path_minds))
+            if video.endswith(VIDEO_EXTENSIONS)
+        ]
 
-            for video in sorted(os.listdir(path_dt)):
-                if video.endswith(VIDEO_EXTENSIONS):
-                    videos.append(os.path.join(path_dt, video))
-
-        # divide os vídeos em 70% treino e 30% teste
+        # divide em 70% treino e 30% teste
         videos_treino, videos_teste = train_test_split(
             videos,
             test_size=0.30,
@@ -83,7 +85,7 @@ def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAME
             f'{len(videos_teste)} teste'
         )
 
-        # extrai os vídeos destinados ao treinamento
+        # treinamento
         for video_path in videos_treino:
             extract_frames(
                 video_path=video_path,
@@ -94,7 +96,7 @@ def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAME
                 gesture_label=gesto
             )
 
-        # extrai os vídeos destinados ao teste
+        # teste
         for video_path in videos_teste:
             extract_frames(
                 video_path=video_path,
