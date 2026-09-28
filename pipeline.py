@@ -11,10 +11,14 @@ Métricas de Avaliação:
 
 import pickle
 
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.cluster import KMeans
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     accuracy_score,
@@ -23,7 +27,9 @@ from sklearn.metrics import (
     f1_score,
 )
 from sklearn.model_selection import StratifiedGroupKFold, GridSearchCV
-from sklearn.preprocessing import LabelEncoder
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import f1_score, accuracy_score
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.models import Sequential
@@ -37,14 +43,21 @@ from utils.constants import (
     DATASET_TESTE_CSV,
     DATASET_TREINO_CSV,
     ENCODER_PATH,
+    KMEANS_KNN_PATH,
+    KMEANS_PATH,
     LSTM_PATH,
     LSTM_PATH_AUG,
     MATRIZ_PATH,
+    N_AUMENTOS,
+    OUTPUTS_DIR,
+    PARAM_GRID_KMEANS,
+    PARAM_GRID_KMEANS_KNN,
     PARAM_GRID_LSTM,
     PREDICOES_PATH,
-    N_AUMENTOS,
+    SEED,
     RESULTS_PATH
 )
+    
 from utils.utils import _salvar_log_treino
 import os
 
@@ -128,7 +141,65 @@ def create_lstm_model(
     return model
 
 
-def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val):
+class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
+    """
+    Agrupa os frames em poses (K-Means) e resume cada sequência num histograma de
+    ocupação + transição entre poses consecutivas.
+    """
+
+    def __init__(self, n_clusters=110):
+        self.n_clusters = n_clusters
+
+    def fit(self, X, y=None):
+        frames_treino = X.reshape(-1, X.shape[-1])
+        self.kmeans_ = KMeans(n_clusters=self.n_clusters,
+                              random_state=SEED,
+                              n_init=10)
+        self.kmeans_.fit(frames_treino)
+        return self
+
+    def transform(self, X):
+        n_clusters = self.n_clusters
+        vetores = np.zeros(
+            (len(X), n_clusters + n_clusters * n_clusters))
+
+        for i, seq in enumerate(X):
+            clusters_seq = self.kmeans_.predict(seq)
+
+            for c in clusters_seq:
+                vetores[i, c] += 1
+            vetores[i, :n_clusters] /= len(clusters_seq)
+
+            for c_atual, c_seguinte in zip(clusters_seq[:-1],
+                                           clusters_seq[1:]):
+                vetores[i, n_clusters + c_atual * n_clusters +
+                        c_seguinte] += 1
+            n_transicoes = max(len(clusters_seq) - 1, 1)
+            vetores[i, n_clusters:] /= n_transicoes
+
+        return vetores
+
+
+def criar_pipeline_kmeans():
+    return Pipeline([
+        ("compactar", SequenciaParaHistograma()),
+        ("scaler", StandardScaler()),
+        ("rf", RandomForestClassifier(max_depth=None,
+                                      class_weight="balanced",
+                                      random_state=SEED)),
+    ])
+
+
+def criar_pipeline_kmeans_knn():
+    return Pipeline([
+        ("compactar", SequenciaParaHistograma()),
+        ("scaler", StandardScaler()),
+        ("knn", KNeighborsClassifier(weights="distance")),
+    ])
+
+
+def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val,
+                    usa_validation_data=True):
     """
     Executa GridSearchCV para um dado modelo (pipeline) e espaço de parâmetros.
 
@@ -138,6 +209,7 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         scoring_method          : métrica de avaliação.
         X_fit, y_fit, groups    : dados de treino.
         X_val, y_val            : dados de validação
+        usa_validation_data     : False pra modelos sklearn puros (não usam EarlyStopping)
 
     Retorna:
         best_estimator_         : melhor modelo encontrado.
@@ -145,9 +217,10 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         best_score_             : melhor score obtido na validação cruzada.
     """
 
-    model_used.set_params(
-        fit__validation_data=(X_val, y_val)
-    )
+    if usa_validation_data:
+        model_used.set_params(
+            fit__validation_data=(X_val, y_val)
+        )
 
     cv = StratifiedGroupKFold(
         n_splits=5,
@@ -178,9 +251,9 @@ def avaliar_modelo_teste(
     y_test,
     n_amostras_treino,
     n_aumentos,
-    augmentation
+    augmentation,
+    usa_predict_proba=True,
 ):
-
     """
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo
@@ -193,8 +266,11 @@ def avaliar_modelo_teste(
 
 
     # Realiza as predições do modelo
-    y_pred_probs = model.predict_proba(X_test, verbose=0)
-    y_pred = np.argmax(y_pred_probs, axis=1)
+    if usa_predict_proba:
+        y_pred_probs = model.predict_proba(X_test, verbose=0)
+        y_pred = np.argmax(y_pred_probs, axis=1)
+    else:
+        y_pred = model.predict(X_test)
 
     # Valor Previsto -> Gesto do LabelEncoder
     y_pred_str = label_encoder.inverse_transform(y_pred)
@@ -257,6 +333,8 @@ if __name__ == "__main__":
         ('lstm:baseline', PARAM_GRID_LSTM, LSTM_PATH, False),
         ('lstm:processed_aug', PARAM_GRID_LSTM, LSTM_PROCESSED_AUG, True),
         ('lstm:processed', PARAM_GRID_LSTM, LSTM_PROCESSED, False),
+        ('kmeans', PARAM_GRID_KMEANS, KMEANS_PATH, False),
+        ('kmeans_knn', PARAM_GRID_KMEANS_KNN, KMEANS_KNN_PATH, False),
     ]
 
     # Dataset é definido aqui, não possui opção de mudar
@@ -266,7 +344,7 @@ if __name__ == "__main__":
     X_test, y_test, groups_test = import_from_csv(dataset_teste_processado)
 
 
-    X_train, y_train, groups_train, X_val, y_val, groups_val = splitTrainValidation(
+    X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
         x_fit=X_train, y_fit=y_train, groups_fit=groups_train
     )
     print(X_train.shape)
@@ -277,7 +355,8 @@ if __name__ == "__main__":
 
     label_encoder = LabelEncoder()
     y_train_encoded = label_encoder.fit_transform(y_train)
-    y_val_encoded = label_encoder.fit_transform(y_val)
+    y_train_reduzido_encoded = label_encoder.transform(y_train_reduzido)
+    y_val_encoded = label_encoder.transform(y_val)
     num_labels = len(label_encoder.classes_)
 
     print("Shape Dados  de Treino: ", X_train.shape)
@@ -331,9 +410,13 @@ if __name__ == "__main__":
                     callbacks=[early_stopping]
                 )
             case "kmeans":
-                pass
+                model = criar_pipeline_kmeans()
+            case "kmeans_knn":
+                model = criar_pipeline_kmeans_knn()
             case default:
                 pass
+
+        eh_modelo_keras = model_to_create == "lstm"
 
         # Aplica o Grid Search no modelo
         best_model, best_params, best_score = applyGridSearch(
@@ -344,22 +427,29 @@ if __name__ == "__main__":
             y_fit=y_fit,
             groups=group_fit,
             X_val=X_val,
-            y_val=y_val_encoded
+            y_val=y_val_encoded,
+            usa_validation_data=eh_modelo_keras,
         )
+
         # Realiza o teste e grava métricas em arquivos
         avaliar_modelo_teste(
             model_name=model_name,
             model=best_model,
             best_params=best_params,
             label_encoder=label_encoder,
-            X_test=X_test, 
+            X_test=X_test,
             y_test=y_test,
             n_amostras_treino=x_fit.shape[0],
             n_aumentos=N_AUMENTOS,
-            augmentation=usar_augmentation
+            augmentation=usar_augmentation,
+            usa_predict_proba=eh_modelo_keras,
         )
 
-        best_model.model_.save(path_model)
+        if eh_modelo_keras:
+            best_model.model_.save(path_model)
+        else:
+            joblib.dump(best_model, path_model, compress=3)
+            print(f"[OK] Modelo {model_name} salvo em '{path_model}'")
 
     # Armazena o LabelEncoder em disco
     with open(ENCODER_PATH, 'wb') as f:

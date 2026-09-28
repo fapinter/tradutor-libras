@@ -1,5 +1,6 @@
 tensorflow
 scikit-learn
+joblib
 numpy
 mediapipe
 opencv-python
