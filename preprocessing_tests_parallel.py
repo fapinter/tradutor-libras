@@ -1,7 +1,6 @@
 import cv2
 import mediapipe as mp
 import numpy as np
-
 from pathlib import Path
 from itertools import product
 from time import perf_counter
@@ -28,15 +27,8 @@ from utils.constants import (
 
 def resize_with_padding(image, target_size):
     """
-    Redimensiona a imagem mantendo o aspect ratio e adiciona
+    Redimensiona a imagem mantendo a proporção das imagens e adiciona
     padding para atingir exatamente target_size.
-
-    Parameters
-    ----------
-    image : np.ndarray
-        Imagem BGR.
-    target_size : tuple
-        (width, height)
     """
 
     target_width, target_height = target_size
@@ -95,13 +87,11 @@ def apply_sharpening(image):
     """
     Aplica sharpening moderado.
     """
-
     kernel = np.array([
         [0, -1,  0],
         [-1, 5, -1],
         [0, -1,  0]
     ])
-
     return cv2.filter2D(image, -1, kernel)
 
 def apply_blur(image, blur_type=None, kernel_size=3):
@@ -112,25 +102,21 @@ def apply_blur(image, blur_type=None, kernel_size=3):
         case "median":
             return cv2.medianBlur(image,kernel_size)
         case "gaussian":
-            return cv2.medianBlur(image, kernel_size)
+            return cv2.GaussianBlur(image, (kernel_size, kernel_size), sigmaX=0)
         case "bilateral":
             return cv2.bilateralFilter(image,d=kernel_size,sigmaColor=75,sigmaSpace=75)
 
 
 def preprocess_frame(
-    frame,
-    resolution,
-    use_clahe=False,
-    use_sharpening=False,
-    blur_type=None,
-    blur_kernel_size=3
+    frame, resolution, use_clahe=False,
+    use_sharpening=False, blur_type=None, blur_kernel_size=3
 ):
     """
     Pipeline:
-
         1. Resize + padding
-        2. CLAHE
-        3. Sharpening
+        2. Blur
+        3. CLAHE
+        4. Sharpening
     """
 
     frame = resize_with_padding(
@@ -153,10 +139,6 @@ def preprocess_frame(
     return frame
 
 
-# ============================================================
-# AUXILIARES DE PARALELISMO
-# ============================================================
-
 def configure_worker():
     """
     Configuração executada uma vez em cada processo worker.
@@ -176,49 +158,23 @@ def configure_worker():
 
 
 def get_image_files(root_path):
-    """
-    Retorna todos os arquivos de imagem seguindo:
-
-        root/
-            gesto/
-                video/
-                    imagem
-
-    A lista é criada uma única vez por processo.
-    """
-
     root_path = Path(root_path)
 
     image_files = []
-
     for gesture_dir in root_path.iterdir():
-
         if not gesture_dir.is_dir():
             continue
-
         for video_dir in gesture_dir.iterdir():
-
             if not video_dir.is_dir():
                 continue
-
             for image_path in video_dir.iterdir():
-
                 if image_path.is_file():
                     image_files.append(image_path)
     return image_files
 
-
-# ============================================================
-# PROCESSAMENTO DE UMA CONFIGURAÇÃO
-# ============================================================
-
 def process_dataset(
-    txt_path,
-    resolution,
-    use_sharpening,
-    use_clahe,
-    blur_type,
-    blur_kernel_size,
+    txt_path, resolution, use_sharpening,
+    use_clahe, blur_type, blur_kernel_size,
     root_path
 ):
     """
@@ -246,12 +202,8 @@ def process_dataset(
 
 
 def _process_dataset_core(
-    resolution,
-    use_sharpening,
-    use_clahe,
-    blur_type,
-    blur_kernel_size,
-    root_path
+    resolution, use_sharpening, use_clahe,
+    blur_type, blur_kernel_size, root_path
 ):
     """
     Núcleo do processamento.
@@ -265,16 +217,11 @@ def _process_dataset_core(
     """
 
     root_path = Path(root_path)
-
     if not root_path.exists():
-        raise FileNotFoundError(
-            f"Diretório raiz não encontrado: {root_path}"
-        )
+        raise FileNotFoundError(f"Diretório raiz não encontrado: {root_path}")
 
     total_frames = 0
     frames_at_least_one_detected = 0
-    frames_none_detected = 0
-
     start_time = perf_counter()
 
     # Cada processo cria sua própria instância do MediaPipe.
@@ -317,28 +264,17 @@ def _process_dataset_core(
 
             if results.hand_landmarks:
                 frames_at_least_one_detected += 1
-            else:
-                frames_none_detected += 1
-
     elapsed_time = perf_counter() - start_time
 
     if total_frames > 0:
-
         success_rate = (
             frames_at_least_one_detected
             / total_frames
             * 100
         )
 
-        failure_rate = (
-            frames_none_detected
-            / total_frames
-            * 100
-        )
-
     else:
         success_rate = 0
-        failure_rate = 0
 
     return {
         "resolution": f"{resolution[0]}x{resolution[1]}",
@@ -346,11 +282,7 @@ def _process_dataset_core(
         "clahe": use_clahe,
         "blur_type": blur_type,
         "blur_kernel_size": blur_kernel_size,
-        "total_frames": total_frames,
-        "frames_at_least_one_hand": frames_at_least_one_detected,
-        "frames_no_hands": frames_none_detected,
         "success_rate": success_rate,
-        "failure_rate": failure_rate,
         "elapsed_seconds": elapsed_time
     }
 
@@ -400,16 +332,10 @@ def print_result(result):
     print(f"CLAHE:            {result['clahe']}")
     print(f"Blur Type:        {result['blur_type']}")
     print(f"Blur Kernel Size: {result['blur_kernel_size']}")
-    print(f"Total de frames:  {result['total_frames']}")
-    print(f"Pelo menos 1 mão: {result['frames_at_least_one_hand']} ({result['success_rate']:.2f}%)")
-    print(f"Nenhuma mão: {result['frames_no_hands']} ({result['failure_rate']:.2f}%)")
+    print(f"Taxa de detecção: ({result['success_rate']:.2f}%)")
     print(f"Tempo: {result['elapsed_seconds']:.2f} segundos")
     print("=" * 70)
 
-
-# ============================================================
-# WORKER DA GRID
-# ============================================================
 
 def _run_configuration_worker(args):
     """
@@ -450,59 +376,27 @@ def _run_configuration_worker(args):
     )
 
     result["worker_pid"] = os.getpid()
-
-    # O tempo já é calculado no core.
-    # Mantemos também o tempo externo para debug.
-    result["worker_elapsed_seconds"] = (
-        perf_counter() - start_time
-    )
+    result["worker_elapsed_seconds"] = perf_counter() - start_time
 
     return index, result
 
 
-# ============================================================
-# GRID SEARCH PARALELA
-# ============================================================
-
-def run_preprocessing_grid(
-    txt_path,
-    root_path,
-    max_workers=None
-):
+def run_preprocessing_grid(txt_path, root_path, max_workers=None):
     """
     Executa todas as combinações em paralelo.
-
-    5 resoluções × 2 sharpening × 2 CLAHE = 20 configurações.
-
-    Parameters
-    ----------
-    txt_path : str
-        Arquivo TXT dos resultados.
-
-    root_path : str
-        Dataset.
-
-    max_workers : int | None
-        Número de processos simultâneos.
-
-        None:
-            usa a quantidade padrão do ProcessPoolExecutor.
-
-        Recomenda-se começar com 2 ou 4 para MediaPipe e
-        aumentar somente se CPU/RAM permitirem.
     """
 
     resolutions = [
-        #(1920, 1080),
+        (1920, 1080),
         (1280, 720),
         (960, 540),
-        #(640, 360),
+        (640, 360),
         #(480, 270)
     ]
 
     sharpening_options = [True, False]
-    clahe_options = [True, False]
-    blur_type_options = ["median", "bilateral"]
+    clahe_options = [False]#,True]
+    blur_type_options = [None, "median", "bilateral", "gaussian"]
     blur_kernel_options = [3,5]
 
     configurations = list(
