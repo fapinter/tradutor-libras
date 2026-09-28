@@ -3,7 +3,7 @@ import os
 import cv2
 
 from utils.constants import FRAME_RATE, FRAMES_DIR, VIDEO_EXTENSIONS, VIDEOS_DIR
-
+from sklearn.model_selection import train_test_split
 
 # Estrutura de diretorio
 # dataset/
@@ -16,6 +16,8 @@ from utils.constants import FRAME_RATE, FRAMES_DIR, VIDEO_EXTENSIONS, VIDEOS_DIR
 #       - {gesto}/
 #           - {minds|malta}/ (treinamento e teste respectivamente)
 #               - minds_{id_video}.mp4
+
+'''
 def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAMES_DIR):
     if not os.path.exists(pasta_videos):
         print(f"Aviso: A pasta '{pasta_videos}' nao foi encontrada.")
@@ -43,7 +45,66 @@ def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAME
                     else:
                         output_dir = os.path.join(pasta_destino_frames, 'teste')
                     extract_frames(video_path=video_path, output_dir=output_dir, gesture_label=gesto)
+'''
 
+def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAMES_DIR):
+    if not os.path.exists(pasta_videos):
+        print(f"Aviso: A pasta '{pasta_videos}' nao foi encontrada.")
+        return
+
+    gestos = sorted(os.listdir(pasta_videos))
+    if not gestos:
+        print(f"Aviso: A pasta '{pasta_videos}' está vazia.")
+        return
+
+    for gesto in gestos:
+        path_gesto = os.path.join(pasta_videos, gesto)
+
+        videos = []
+
+        # junta os vídeos de todos os datasets
+        for dt in os.listdir(path_gesto):
+            path_dt = os.path.join(path_gesto, dt)
+
+            for video in sorted(os.listdir(path_dt)):
+                if video.endswith(VIDEO_EXTENSIONS):
+                    videos.append(os.path.join(path_dt, video))
+
+        # divide os vídeos em 70% treino e 30% teste
+        videos_treino, videos_teste = train_test_split(
+            videos,
+            test_size=0.30,
+            random_state=42
+        )
+
+        print(
+            f'\t{gesto}: '
+            f'{len(videos_treino)} treino / '
+            f'{len(videos_teste)} teste'
+        )
+
+        # extrai os vídeos destinados ao treinamento
+        for video_path in videos_treino:
+            extract_frames(
+                video_path=video_path,
+                output_dir=os.path.join(
+                    pasta_destino_frames,
+                    'treinamento'
+                ),
+                gesture_label=gesto
+            )
+
+        # extrai os vídeos destinados ao teste
+        for video_path in videos_teste:
+            extract_frames(
+                video_path=video_path,
+                output_dir=os.path.join(
+                    pasta_destino_frames,
+                    'teste'
+                ),
+                gesture_label=gesto
+            )
+            
 # Coleta frames de um video especifico
 def extract_frames(video_path,
                    output_dir,
@@ -52,7 +113,6 @@ def extract_frames(video_path,
     gesture_dir = os.path.join(output_dir, gesture_label)
     os.makedirs(gesture_dir, exist_ok=True)
 
-    # Get video index by its path
     video_idx = (video_path
         .split('/')[-1]
         .split('_')[1]
