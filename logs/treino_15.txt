@@ -1,0 +1,82 @@
+Frames duplicados em acontecer: 393/966
+Frames de padding em acontecer: 0/966
+Vídeos com padding em acontecer: 0/40
+  -> 100 sequência(s) para 'acontecer'
+Frames duplicados em aluno: 458/1251
+Frames de padding em aluno: 0/1251
+Vídeos com padding em aluno: 0/40
+  -> 156 sequência(s) para 'aluno'
+Frames duplicados em amarelo: 427/1168
+Frames de padding em amarelo: 0/1168
+Vídeos com padding em amarelo: 0/40
+  -> 136 sequência(s) para 'amarelo'
+Frames duplicados em america: 363/1157
+Frames de padding em america: 0/1157
+Vídeos com padding em america: 0/40
+  -> 136 sequência(s) para 'america'
+Frames duplicados em aproveitar: 423/894
+Frames de padding em aproveitar: 0/894
+Vídeos com padding em aproveitar: 0/40
+  -> 82 sequência(s) para 'aproveitar'
+Frames duplicados em bala: 382/1108
+Frames de padding em bala: 0/1108
+Vídeos com padding em bala: 0/40
+  -> 126 sequência(s) para 'bala'
+Frames duplicados em banco: 427/1101
+Frames de padding em banco: 0/1101
+Vídeos com padding em banco: 0/40
+  -> 125 sequência(s) para 'banco'
+Frames duplicados em banheiro: 410/1145
+Frames de padding em banheiro: 0/1145
+Vídeos com padding em banheiro: 0/40
+  -> 133 sequência(s) para 'banheiro'
+Frames duplicados em barulho: 435/1192
+Frames de padding em barulho: 0/1192
+Vídeos com padding em barulho: 0/40
+  -> 141 sequência(s) para 'barulho'
+Frames duplicados em conhecer: 449/1088
+Frames de padding em conhecer: 0/1088
+Vídeos com padding em conhecer: 0/40
+  -> 120 sequência(s) para 'conhecer'
+Frames duplicados em espelho: 465/1165
+Frames de padding em espelho: 0/1165
+Vídeos com padding em espelho: 0/40
+  -> 134 sequência(s) para 'espelho'
+Frames duplicados em esquina: 370/1163
+Frames de padding em esquina: 0/1163
+Vídeos com padding em esquina: 0/40
+  -> 137 sequência(s) para 'esquina'
+Frames duplicados em filho: 391/1024
+Frames de padding em filho: 0/1024
+Vídeos com padding em filho: 0/40
+  -> 109 sequência(s) para 'filho'
+Frames duplicados em maca: 461/1151
+Frames de padding em maca: 0/1151
+Vídeos com padding em maca: 0/40
+  -> 133 sequência(s) para 'maca'
+Frames duplicados em medo: 432/1045
+Frames de padding em medo: 0/1045
+Vídeos com padding em medo: 0/40
+  -> 113 sequência(s) para 'medo'
+Frames duplicados em ruim: 407/1082
+Frames de padding em ruim: 0/1082
+Vídeos com padding em ruim: 0/40
+  -> 118 sequência(s) para 'ruim'
+Frames duplicados em sapo: 417/1200
+Frames de padding em sapo: 0/1200
+Vídeos com padding em sapo: 0/40
+  -> 144 sequência(s) para 'sapo'
+Frames duplicados em vacina: 441/1065
+Frames de padding em vacina: 0/1065
+Vídeos com padding em vacina: 0/40
+  -> 117 sequência(s) para 'vacina'
+Frames duplicados em vontade: 418/1159
+Frames de padding em vontade: 0/1159
+Vídeos com padding em vontade: 0/40
+  -> 137 sequência(s) para 'vontade'
+Shape das features: (2397, 15, 127)
+
+Extração concluída! Total de 2397 amostras coletadas
+
+Detecção de Frames: 13155/21124 = 62.27513728460519%
+Número de Frames com Padding: 0/21124 = 0.0%

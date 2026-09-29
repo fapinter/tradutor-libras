@@ -43,10 +43,6 @@ from utils.constants import (
     DATASET_TESTE_CSV,
     DATASET_TREINO_CSV,
     ENCODER_PATH,
-    KMEANS_KNN_PATH,
-    KMEANS_PATH,
-    LSTM_PATH,
-    LSTM_PATH_AUG,
     MATRIZ_PATH,
     N_AUMENTOS,
     OUTPUTS_DIR,
@@ -55,7 +51,10 @@ from utils.constants import (
     PARAM_GRID_LSTM,
     PREDICOES_PATH,
     SEED,
-    RESULTS_PATH
+    RESULTS_PATH,
+    MODELS_DIR,
+    KERAS_PATH,
+    PICKLE_PATH
 )
     
 from utils.utils import _salvar_log_treino
@@ -92,6 +91,22 @@ def splitTrainValidation(x_fit, y_fit, groups_fit):
         raise ValueError(f'Overlap entre grupos de Treino e Validação: {overlap}')    
 
     return x_train, y_train, groups_train, x_val, y_val, groups_val
+
+
+def criar_pipeline_kmeans():
+    return Pipeline([
+        ("compactar", SequenciaParaHistograma()),
+        ("scaler", StandardScaler()),
+        ("rf", RandomForestClassifier(max_depth=None,class_weight="balanced",random_state=SEED)),
+    ])
+
+
+def criar_pipeline_kmeans_knn():
+    return Pipeline([
+        ("compactar", SequenciaParaHistograma()),
+        ("scaler", StandardScaler()),
+        ("knn", KNeighborsClassifier(weights="distance")),
+    ])
 
 
 def create_lstm_model(
@@ -152,10 +167,8 @@ class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         frames_treino = X.reshape(-1, X.shape[-1])
-        self.kmeans_ = KMeans(n_clusters=self.n_clusters,
-                              random_state=SEED,
-                              n_init=10)
-        self.kmeans_.fit(frames_treino)
+        self.kmeans_ = KMeans(n_clusters=self.n_clusters, random_state=SEED, n_init=10)
+        self.kmeans_.fit(frames_treino, y)
         return self
 
     def transform(self, X):
@@ -168,35 +181,15 @@ class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
 
             for c in clusters_seq:
                 vetores[i, c] += 1
+
             vetores[i, :n_clusters] /= len(clusters_seq)
 
-            for c_atual, c_seguinte in zip(clusters_seq[:-1],
-                                           clusters_seq[1:]):
-                vetores[i, n_clusters + c_atual * n_clusters +
-                        c_seguinte] += 1
+            for c_atual, c_seguinte in zip(clusters_seq[:-1],clusters_seq[1:]):
+                vetores[i, n_clusters + c_atual * n_clusters +c_seguinte] += 1
             n_transicoes = max(len(clusters_seq) - 1, 1)
             vetores[i, n_clusters:] /= n_transicoes
 
         return vetores
-
-
-def criar_pipeline_kmeans():
-    return Pipeline([
-        ("compactar", SequenciaParaHistograma()),
-        ("scaler", StandardScaler()),
-        ("rf", RandomForestClassifier(max_depth=None,
-                                      class_weight="balanced",
-                                      random_state=SEED)),
-    ])
-
-
-def criar_pipeline_kmeans_knn():
-    return Pipeline([
-        ("compactar", SequenciaParaHistograma()),
-        ("scaler", StandardScaler()),
-        ("knn", KNeighborsClassifier(weights="distance")),
-    ])
-
 
 def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val,
                     usa_validation_data=True):
@@ -324,22 +317,21 @@ def avaliar_modelo_teste(
 
 if __name__ == "__main__":
     # TODO: Adicionar os outros modelos para o treinamento
-    LSTM_PROCESSED_AUG = "models/lstm_processed_aug.keras"
-    LSTM_PROCESSED = "models/lstm_processed.keras"
-
     models = [
-        # Modelo, Hiperparametros, Path binário, Usar Augmentation
-        ('lstm:baseline_aug', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
-        ('lstm:baseline', PARAM_GRID_LSTM, LSTM_PATH, False),
-        ('lstm:processed_aug', PARAM_GRID_LSTM, LSTM_PROCESSED_AUG, True),
-        ('lstm:processed', PARAM_GRID_LSTM, LSTM_PROCESSED, False),
-        ('kmeans', PARAM_GRID_KMEANS, KMEANS_PATH, False),
-        ('kmeans_knn', PARAM_GRID_KMEANS_KNN, KMEANS_KNN_PATH, False),
+        # Modelo, Hiperparametros, Usar Augmentation
+        #('lstm:baseline_aug', PARAM_GRID_LSTM, True),
+        #('lstm:baseline', PARAM_GRID_LSTM, False),
+        ('kmeans:processed_aug', PARAM_GRID_KMEANS, True),
+        ('kmeans:processed', PARAM_GRID_KMEANS, False),
+        ('kmeans_knn:processed_aug', PARAM_GRID_KMEANS_KNN, True),
+        ('kmeans_knn:processed', PARAM_GRID_KMEANS_KNN, False),
+        ('lstm:processed_aug', PARAM_GRID_LSTM, True),
+        ('lstm:processed', PARAM_GRID_LSTM, False),
     ]
 
     # Dataset é definido aqui, não possui opção de mudar
-    dataset_treino_processado = "dataset/treino_preprocessed.csv"
-    dataset_teste_processado = "dataset/teste_preprocessed.csv"
+    dataset_treino_processado = "dataset/treino_15.csv"
+    dataset_teste_processado = "dataset/teste_15.csv"
     X_train, y_train, groups_train = import_from_csv(dataset_treino_processado)
     X_test, y_test, groups_test = import_from_csv(dataset_teste_processado)
 
@@ -382,7 +374,7 @@ if __name__ == "__main__":
     # pois realiza a análise de acerto das
     # classes com o mesmo peso para todas as classes
     scoring_method = "f1_macro"
-    for model_name, params, path_model, usar_augmentation in models:
+    for model_name, params, usar_augmentation in models:
 
         if usar_augmentation:
             x_fit, y_fit, group_fit = X_aug, label_encoder.transform(y_aug), group_aug
@@ -445,11 +437,12 @@ if __name__ == "__main__":
             usa_predict_proba=eh_modelo_keras,
         )
 
+        model_path = model_name.replace(':', '_')
         if eh_modelo_keras:
-            best_model.model_.save(path_model)
+            best_model.model_.save(KERAS_PATH % model_path)
         else:
-            joblib.dump(best_model, path_model, compress=3)
-            print(f"[OK] Modelo {model_name} salvo em '{path_model}'")
+            joblib.dump(best_model, PICKLE_PATH % model_path, compress=3)
+        print(f"[OK] Modelo {model_name} salvo em '{model_path}'")
 
     # Armazena o LabelEncoder em disco
     with open(ENCODER_PATH, 'wb') as f:

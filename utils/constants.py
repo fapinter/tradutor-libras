@@ -22,7 +22,7 @@ HAND_CONNECTIONS = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5),
 
 VIDEO_EXTENSIONS = (".mp4", ".avi", ".mov")
 FRAME_RATE = 5
-SEQUENCE_LENGTH = 20
+SEQUENCE_LENGTH = 15
 DEFAULT_STEP = 5
 
 LANDMARKER_PATH = "utils/hand_landmarker.task"
@@ -105,6 +105,9 @@ RELATORIO_AVALIACAO_TESTE = "outputs/relatorio_avaliacao_teste.txt"
 PREDICOES_PATH = "outputs/predicoes_%s.txt"
 MATRIZ_PATH = "outputs/matriz_%s.png"
 RESULTS_PATH = "outputs/results_%s.png"
+
+KERAS_PATH = "models/%s.keras"
+PICKLE_PATH = "models/%s.pkl"
 
 LSTM_PATH = "models/lstm_sign_model.keras"
 LSTM_PATH_AUG = "models/lstm_sign_model_aug.keras"
