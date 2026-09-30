@@ -11,11 +11,9 @@ Métricas de Avaliação:
 
 import pickle
 
-import os
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.cluster import KMeans
@@ -46,14 +44,12 @@ from utils.constants import (
     ENCODER_PATH,
     MATRIZ_PATH,
     N_AUMENTOS,
-    OUTPUTS_DIR,
     PARAM_GRID_KMEANS,
     PARAM_GRID_KMEANS_KNN,
     PARAM_GRID_LSTM,
     PREDICOES_PATH,
     SEED,
     RESULTS_PATH,
-    MODELS_DIR,
     KERAS_PATH,
     PICKLE_PATH
 )
@@ -227,7 +223,7 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         param_grid=params,
         cv=cv,
         scoring=scoring_method,
-        n_jobs=-1,
+        n_jobs=2,
         verbose=1
     )
     grid.fit(X_fit, y_fit, groups=groups)
@@ -314,6 +310,13 @@ def avaliar_modelo_teste(
 
 
 if __name__ == "__main__":
+    gpus = tf.config.list_physical_devices("GPU")
+
+    if gpus:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+
+    print("GPUs:", tf.config.list_physical_devices("GPU"))
     # TODO: Adicionar os outros modelos para o treinamento
     models = [
         # Modelo, Hiperparametros, Usar Augmentation
@@ -323,13 +326,19 @@ if __name__ == "__main__":
         #('kmeans:processed_15', PARAM_GRID_KMEANS, False),
         #('kmeans_knn:processed_aug_15', PARAM_GRID_KMEANS_KNN, True),
         #('kmeans_knn:processed_15', PARAM_GRID_KMEANS_KNN, False),
-        ('lstm:processed_aug_15', PARAM_GRID_LSTM, True),
-        ('lstm:processed_15', PARAM_GRID_LSTM, False),
+        #('lstm:processed_aug_15', PARAM_GRID_LSTM, True),
+        #('lstm:processed_15', PARAM_GRID_LSTM, False),
+        ('kmeans:minds_aug', PARAM_GRID_KMEANS, True),
+        ('kmeans:minds', PARAM_GRID_KMEANS, False),
+        ('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),
+        ('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN, False),
+        ('lstm:minds_aug', PARAM_GRID_LSTM, True),
+        ('lstm:minds', PARAM_GRID_LSTM, False),
     ]
 
     # Dataset é definido aqui, não possui opção de mudar
-    dataset_treino_processado = "dataset/treino_15.csv"
-    dataset_teste_processado = "dataset/teste_15.csv"
+    dataset_treino_processado = "dataset/treino_minds_70.csv"
+    dataset_teste_processado = "dataset/teste_minds_30.csv"
     X_train, y_train, groups_train = import_from_csv(dataset_treino_processado)
     X_test, y_test, groups_test = import_from_csv(dataset_teste_processado)
 
