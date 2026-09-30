@@ -11,6 +11,7 @@ Métricas de Avaliação:
 
 import pickle
 
+import os
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -58,7 +59,6 @@ from utils.constants import (
 )
     
 from utils.utils import _salvar_log_treino
-import os
 
 tf.keras.backend.clear_session()
 
@@ -251,8 +251,6 @@ def avaliar_modelo_teste(
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo
     """
-    model_name = model_name.replace(':', '_')
-
     predicoes_path = PREDICOES_PATH % model_name
     matriz_path = MATRIZ_PATH % model_name
     results_path = RESULTS_PATH % model_name
@@ -321,12 +319,12 @@ if __name__ == "__main__":
         # Modelo, Hiperparametros, Usar Augmentation
         #('lstm:baseline_aug', PARAM_GRID_LSTM, True),
         #('lstm:baseline', PARAM_GRID_LSTM, False),
-        ('kmeans:processed_aug', PARAM_GRID_KMEANS, True),
-        ('kmeans:processed', PARAM_GRID_KMEANS, False),
-        ('kmeans_knn:processed_aug', PARAM_GRID_KMEANS_KNN, True),
-        ('kmeans_knn:processed', PARAM_GRID_KMEANS_KNN, False),
-        ('lstm:processed_aug', PARAM_GRID_LSTM, True),
-        ('lstm:processed', PARAM_GRID_LSTM, False),
+        #('kmeans:processed_aug_15', PARAM_GRID_KMEANS, True),
+        #('kmeans:processed_15', PARAM_GRID_KMEANS, False),
+        #('kmeans_knn:processed_aug_15', PARAM_GRID_KMEANS_KNN, True),
+        #('kmeans_knn:processed_15', PARAM_GRID_KMEANS_KNN, False),
+        ('lstm:processed_aug_15', PARAM_GRID_LSTM, True),
+        ('lstm:processed_15', PARAM_GRID_LSTM, False),
     ]
 
     # Dataset é definido aqui, não possui opção de mudar
@@ -424,6 +422,7 @@ if __name__ == "__main__":
         )
 
         # Realiza o teste e grava métricas em arquivos
+        model_name = model_name.replace(':', '_')
         avaliar_modelo_teste(
             model_name=model_name,
             model=best_model,
@@ -437,12 +436,12 @@ if __name__ == "__main__":
             usa_predict_proba=eh_modelo_keras,
         )
 
-        model_path = model_name.replace(':', '_')
         if eh_modelo_keras:
-            best_model.model_.save(KERAS_PATH % model_path)
+            best_model.model_.save(KERAS_PATH % model_name)
+            print(f"[OK] Modelo {model_name} salvo em '{KERAS_PATH % model_name}'")
         else:
-            joblib.dump(best_model, PICKLE_PATH % model_path, compress=3)
-        print(f"[OK] Modelo {model_name} salvo em '{model_path}'")
+            joblib.dump(best_model, PICKLE_PATH % model_name, compress=3)
+            print(f"[OK] Modelo {model_name} salvo em '{PICKLE_PATH % model_name}'")
 
     # Armazena o LabelEncoder em disco
     with open(ENCODER_PATH, 'wb') as f:

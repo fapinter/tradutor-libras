@@ -8,3 +8,4 @@ pandas
 matplotlib
 tqdm
 scikeras
+python-dotenv

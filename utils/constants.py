@@ -104,7 +104,7 @@ RELATORIO_AVALIACAO_TESTE = "outputs/relatorio_avaliacao_teste.txt"
 
 PREDICOES_PATH = "outputs/predicoes_%s.txt"
 MATRIZ_PATH = "outputs/matriz_%s.png"
-RESULTS_PATH = "outputs/results_%s.png"
+RESULTS_PATH = "outputs/results_%s.txt"
 
 KERAS_PATH = "models/%s.keras"
 PICKLE_PATH = "models/%s.pkl"

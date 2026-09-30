@@ -1,0 +1,30 @@
+Total de Amostras de Teste: 93
+Acurácia no Teste: 16.13%
+F1-Score Macro:             13.23%
+Hiperparametros do kmeans_knn_processed_15: dict_items([('compactar__n_clusters', 110), ('knn__n_neighbors', 1)])
+Relatório de Classificação por Classe:
+              precision    recall  f1-score   support
+
+   acontecer       0.17      0.12      0.14         8
+       aluno       0.00      0.00      0.00         3
+     amarelo       0.50      0.25      0.33         4
+     america       0.50      1.00      0.67         7
+  aproveitar       0.00      0.00      0.00         7
+        bala       0.00      0.00      0.00         7
+       banco       0.00      0.00      0.00         5
+    banheiro       0.00      0.00      0.00         6
+     barulho       0.33      0.33      0.33         3
+    conhecer       0.12      0.14      0.13         7
+     espelho       0.00      0.00      0.00         3
+     esquina       0.33      0.25      0.29         4
+       filho       0.00      0.00      0.00         7
+        maca       0.00      0.00      0.00         2
+        medo       0.50      0.25      0.33         4
+        ruim       0.00      0.00      0.00         4
+        sapo       0.25      0.33      0.29         6
+      vacina       0.00      0.00      0.00         4
+     vontade       0.00      0.00      0.00         2
+
+    accuracy                           0.16        93
+   macro avg       0.14      0.14      0.13        93
+weighted avg       0.15      0.16      0.14        93
