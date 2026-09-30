@@ -91,8 +91,15 @@ FRAMES_DIR = "dataset/frames"
 FRAMES_TREINO_DIR = "dataset/frames/treinamento"
 FRAMES_TESTE_DIR = "dataset/frames/teste"
 
+'''
 DATASET_TREINO_CSV = "dataset/treino.csv"
 DATASET_TESTE_CSV = "dataset/teste.csv"
+
+'''
+
+
+DATASET_TREINO_CSV = "dataset/treino_minds_70.csv"
+DATASET_TESTE_CSV = "dataset/teste_minds_30.csv"
 
 LOGS_DIR = "logs"
 MODELS_DIR = "models"
