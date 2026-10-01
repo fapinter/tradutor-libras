@@ -223,7 +223,7 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         param_grid=params,
         cv=cv,
         scoring=scoring_method,
-        n_jobs=2,
+        n_jobs=1,
         verbose=1
     )
     grid.fit(X_fit, y_fit, groups=groups)
@@ -328,10 +328,10 @@ if __name__ == "__main__":
         #('kmeans_knn:processed_15', PARAM_GRID_KMEANS_KNN, False),
         #('lstm:processed_aug_15', PARAM_GRID_LSTM, True),
         #('lstm:processed_15', PARAM_GRID_LSTM, False),
-        ('kmeans:minds_aug', PARAM_GRID_KMEANS, True),
-        ('kmeans:minds', PARAM_GRID_KMEANS, False),
-        ('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),
-        ('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN, False),
+        #('kmeans:minds_aug', PARAM_GRID_KMEANS, True),
+        #('kmeans:minds', PARAM_GRID_KMEANS, False),
+        #('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),
+        #('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN, False),
         ('lstm:minds_aug', PARAM_GRID_LSTM, True),
         ('lstm:minds', PARAM_GRID_LSTM, False),
     ]

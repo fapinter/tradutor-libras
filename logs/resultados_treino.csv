@@ -12,3 +12,4 @@ data_hora,modelo,acuracia_%,f1_macro_%,amostras_treino,augmentation,n_aumentos
 2026-09-29 11:03:34,kmeans_knn_processed_15,16.13,13.23,2397,nao,0
 2026-09-30 12:22:32,lstm_processed_aug_15,51.61,47.30,14382,sim,5
 2026-09-30 13:24:09,lstm_processed_15,44.09,39.83,2397,nao,0
+2026-10-01 04:43:33,lstm_minds_aug,95.47,95.04,7032,sim,5
