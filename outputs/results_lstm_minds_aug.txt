@@ -1,30 +1,30 @@
 Total de Amostras de Teste: 508
-Acur√°cia no Teste: 95.47%
-F1-Score Macro:             95.04%
-Hiperparametros do lstm_minds_aug: dict_items([('batch_size', 32), ('epochs', 100), ('model__dense_units', 32), ('model__dropout_rate', 0.2), ('model__learning_rate', 0.0005), ('model__lstm_units_1', 128), ('model__lstm_units_2', 64)])
-Relat√≥rio de Classifica√ß√£o por Classe:
+Acur·cia no Teste: 94.29%
+F1-Score Macro:             93.67%
+Hiperparametros do lstm_minds_aug: dict_items([('batch_size', 16), ('epochs', 100), ('model__dense_units', 32), ('model__dropout_rate', 0.4), ('model__learning_rate', 0.0005), ('model__lstm_units_1', 64), ('model__lstm_units_2', 64)])
+RelatÛrio de ClassificaÁ„o por Classe:
               precision    recall  f1-score   support
 
-   acontecer       0.91      0.91      0.91        22
-       aluno       1.00      1.00      1.00        30
-     amarelo       0.91      0.85      0.88        34
+   acontecer       1.00      0.77      0.87        22
+       aluno       0.97      0.93      0.95        30
+     amarelo       1.00      0.94      0.97        34
      america       1.00      1.00      1.00        29
-  aproveitar       1.00      0.71      0.83        14
-        bala       0.85      0.97      0.90        29
-       banco       1.00      0.88      0.94        26
-    banheiro       1.00      0.96      0.98        23
-     barulho       0.97      1.00      0.98        32
-    conhecer       0.93      1.00      0.96        25
+  aproveitar       0.85      0.79      0.81        14
+        bala       0.93      0.97      0.95        29
+       banco       0.96      0.92      0.94        26
+    banheiro       1.00      0.91      0.95        23
+     barulho       0.97      0.97      0.97        32
+    conhecer       0.96      1.00      0.98        25
      espelho       1.00      1.00      1.00        30
-     esquina       0.93      0.97      0.95        29
-       filho       0.96      0.92      0.94        25
-        maca       1.00      0.89      0.94        27
-        medo       0.87      1.00      0.93        20
-        ruim       1.00      1.00      1.00        27
-        sapo       1.00      0.97      0.98        33
-      vacina       0.86      1.00      0.93        25
+     esquina       0.90      0.93      0.92        29
+       filho       0.95      0.80      0.87        25
+        maca       0.83      0.93      0.88        27
+        medo       0.83      1.00      0.91        20
+        ruim       0.96      1.00      0.98        27
+        sapo       0.94      0.97      0.96        33
+      vacina       0.83      0.96      0.89        25
      vontade       1.00      1.00      1.00        28
 
-    accuracy                           0.95       508
-   macro avg       0.96      0.95      0.95       508
-weighted avg       0.96      0.95      0.95       508
+    accuracy                           0.94       508
+   macro avg       0.94      0.94      0.94       508
+weighted avg       0.95      0.94      0.94       508

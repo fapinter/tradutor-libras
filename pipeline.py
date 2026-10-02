@@ -29,7 +29,6 @@ from sklearn.model_selection import StratifiedGroupKFold, GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.metrics import f1_score, accuracy_score
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
@@ -58,14 +57,10 @@ from utils.utils import _salvar_log_treino
 import gc
 import os
 tf.keras.backend.clear_session()
-num_cores = os.cpu_count()
-tf.config.threading.set_intra_op_parallelism_threads(num_cores)
-tf.config.threading.set_inter_op_parallelism_threads(2)
-
 
 class MemoryCleanupCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
-        if epoch % 10 == 0:
+        if epoch % 5 == 0:
             gc.collect()
 
     def on_train_end(self, logs=None):
@@ -233,7 +228,7 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
     )
 
     if eh_modelo_keras:
-        n_jobs = 4
+        n_jobs = 2
     else:
         n_jobs = -1
     grid = GridSearchCV(
@@ -339,11 +334,11 @@ if __name__ == "__main__":
         #('kmeans_knn:processed_15', PARAM_GRID_KMEANS_KNN, False),
         #('lstm:processed_aug_15', PARAM_GRID_LSTM, True),
         #('lstm:processed_15', PARAM_GRID_LSTM, False),
-        ('kmeans:minds_aug', PARAM_GRID_KMEANS, True),
-        ('kmeans:minds', PARAM_GRID_KMEANS, False),
-        ('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),
-        ('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN, False),
-        ('lstm:minds', PARAM_GRID_LSTM, False),
+        #('kmeans:minds_aug', PARAM_GRID_KMEANS, True),
+        #('kmeans:minds', PARAM_GRID_KMEANS, False),
+        #('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),
+        #('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN, False),
+        #('lstm:minds', PARAM_GRID_LSTM, False),
         ('lstm:minds_aug', PARAM_GRID_LSTM, True),
     ]
 

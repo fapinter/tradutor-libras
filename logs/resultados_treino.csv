@@ -24,3 +24,4 @@ data_hora,modelo,acuracia_%,f1_macro_%,amostras_treino,augmentation,n_aumentos
 2026-10-01 17:39:26,kmeans_knn_minds_aug,36.42,36.89,5622,sim,5
 2026-10-01 17:40:30,kmeans_knn_minds,41.34,40.26,937,nao,0
 2026-10-01 18:26:21,lstm_minds,93.50,93.21,937,nao,0
+2026-10-02 02:25:37,lstm_minds_aug,94.29,93.67,5622,sim,5
