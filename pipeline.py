@@ -33,7 +33,7 @@ from sklearn.metrics import f1_score, accuracy_score
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, Callback
 from scikeras.wrappers import KerasClassifier
 
 from feature_extraction import import_from_csv
@@ -55,8 +55,23 @@ from utils.constants import (
 )
     
 from utils.utils import _salvar_log_treino
-
+import gc
+import os
 tf.keras.backend.clear_session()
+num_cores = os.cpu_count()
+tf.config.threading.set_intra_op_parallelism_threads(num_cores)
+tf.config.threading.set_inter_op_parallelism_threads(2)
+
+
+class MemoryCleanupCallback(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        if epoch % 10 == 0:
+            gc.collect()
+
+    def on_train_end(self, logs=None):
+        tf.keras.backend.clear_session()
+        gc.collect()
+
 
 def splitTrainValidation(x_fit, y_fit, groups_fit):
     """
@@ -112,6 +127,7 @@ def create_lstm_model(
     """
         Constrói e compila o modelo LSTM com os hiperparâmetros fornecidos.
     """
+    tf.keras.backend.clear_session()
 
     model = Sequential([
         # Camada de entrada do Modelo
@@ -187,8 +203,7 @@ class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
 
         return vetores
 
-def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val,
-                    usa_validation_data=True):
+def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val, usa_validation_data=True):
     """
     Executa GridSearchCV para um dado modelo (pipeline) e espaço de parâmetros.
 
@@ -217,13 +232,16 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         random_state=42
     )
 
-    # TODO Adicionar dados de validação
+    if eh_modelo_keras:
+        n_jobs = 4
+    else:
+        n_jobs = -1
     grid = GridSearchCV(
         estimator=model_used,
         param_grid=params,
         cv=cv,
         scoring=scoring_method,
-        n_jobs=-1,
+        n_jobs=n_jobs,
         verbose=1
     )
     grid.fit(X_fit, y_fit, groups=groups)
@@ -325,48 +343,52 @@ if __name__ == "__main__":
         ('kmeans:minds', PARAM_GRID_KMEANS, False),
         ('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),
         ('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN, False),
-        ('lstm:minds_aug', PARAM_GRID_LSTM, True),
         ('lstm:minds', PARAM_GRID_LSTM, False),
+        ('lstm:minds_aug', PARAM_GRID_LSTM, True),
     ]
 
     # Dataset é definido aqui, não possui opção de mudar
     dataset_treino_processado = "dataset/treino_minds_70.csv"
     dataset_teste_processado = "dataset/teste_minds_30.csv"
+    # Coleta dos dados no dtype=np.float32
     X_train, y_train, groups_train = import_from_csv(dataset_treino_processado)
     X_test, y_test, groups_test = import_from_csv(dataset_teste_processado)
 
-
+    # Separação dos dados de treino e validação
     X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
         x_fit=X_train, y_fit=y_train, groups_fit=groups_train
     )
-    print(X_train.shape)
-    print(y_train.shape)
+    # Data Augmentation offline (antes do treinamento)
     X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
-        X_train.tolist(), y_train.tolist(), groups_train.tolist(), n_aumentos=N_AUMENTOS
+        X_train_reduzido.tolist(), y_train_reduzido.tolist(), groups_train_reduzido.tolist(), n_aumentos=N_AUMENTOS
     )
 
     label_encoder = LabelEncoder()
-    y_train_encoded = label_encoder.fit_transform(y_train)
+    y_train_encoded = label_encoder.fit_transform(y_train_reduzido)
     y_train_reduzido_encoded = label_encoder.transform(y_train_reduzido)
     y_val_encoded = label_encoder.transform(y_val)
     num_labels = len(label_encoder.classes_)
 
-    print("Shape Dados  de Treino: ", X_train.shape)
-    print("Shape Labels de Treino: ", y_train.shape)
-    print("Shape Grupos de Treino: ", groups_train.shape)
+    print("Shape Dados  de Treino: ", X_train_reduzido.shape)
+    print("Shape Labels de Treino: ", y_train_reduzido.shape)
+    print("Shape Grupos de Treino: ", groups_train_reduzido.shape)
+    print("dtype X Treino: ", X_train_reduzido.dtype)
 
     print("Shape Dados  de Treino Augmentado: ", X_aug.shape)
     print("Shape Labels de Treino Augmentado: ", y_aug.shape)
     print("Shape Grupos de Treino Augmentado: ", group_aug.shape)
+    print("dtype X Treino Augmentado: ", X_aug.dtype)
 
 
     print("Shape Dados  de Validação: ", X_val.shape)
     print("Shape Labels de Validação: ", y_val.shape)
     print("Shape Grupos de Validação: ", groups_val.shape)
+    print("dtype X Validação: ", X_val.dtype)
 
     print("Shape Dados  de Teste: ", X_test.shape)
     print("Shape Labels de Teste: ", y_test.shape)
     print("Shape Grupos de Teste: ", groups_test.shape)
+    print("dtype X Teste: ", X_test.dtype)
 
 
     # F1-Score Macro como métrica para
@@ -375,14 +397,19 @@ if __name__ == "__main__":
     # classes com o mesmo peso para todas as classes
     scoring_method = "f1_macro"
     for model_name, params, usar_augmentation in models:
+        # Redução do Uso de RAM
+        tf.keras.backend.clear_session()
+        gc.collect()
 
         if usar_augmentation:
             x_fit, y_fit, group_fit = X_aug, label_encoder.transform(y_aug), group_aug
         else:
-            x_fit, y_fit, group_fit = X_train, y_train_encoded, groups_train
+            x_fit, y_fit, group_fit = X_train_reduzido, y_train_reduzido_encoded, groups_train_reduzido
 
+        
         input_shape = (x_fit.shape[1], x_fit.shape[2])
-
+        print("Shape fit: ", x_fit.shape, y_fit.shape, group_fit.shape)
+        print("dtype X fit: ", x_fit.dtype)
         model_to_create = model_name.split(':')[0]
         match(model_to_create):
             case "lstm":
@@ -394,12 +421,13 @@ if __name__ == "__main__":
                     patience=10,
                     restore_best_weights=True
                 )
+                cleanup_cb = MemoryCleanupCallback()
                 model = KerasClassifier(
                     model=create_lstm_model,
                     model__input_shape=input_shape,
                     model__num_classes=num_labels,
                     verbose=0,
-                    callbacks=[early_stopping]
+                    callbacks=[early_stopping, cleanup_cb]
                 )
             case "kmeans":
                 model = criar_pipeline_kmeans()
