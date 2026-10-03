@@ -221,3 +221,4 @@ dataset/videos/*
 dataset/frames/*
 
 models/kmeans_knn_processed_aug_15.pkl
+models/kmeans_knn_aug_15.pkl

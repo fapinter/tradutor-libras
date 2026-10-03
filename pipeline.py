@@ -40,13 +40,16 @@ from landmark_augmentation import gerar_amostras_aumentadas
 from utils.constants import (
     DATASET_TESTE_CSV,
     DATASET_TREINO_CSV,
+    DATASET_TREINO_MINDS_CSV,
+    DATASET_TESTE_MINDS_CSV,
+    DATASET_TREINO_15_CSV,
+    DATASET_TESTE_15_CSV,
     ENCODER_PATH,
     MATRIZ_PATH,
     N_AUMENTOS,
     PARAM_GRID_KMEANS,
     PARAM_GRID_KMEANS_KNN,
     PARAM_GRID_LSTM,
-    PREDICOES_PATH,
     SEED,
     RESULTS_PATH,
     KERAS_PATH,
@@ -260,7 +263,6 @@ def avaliar_modelo_teste(
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo
     """
-    predicoes_path = PREDICOES_PATH % model_name
     matriz_path = MATRIZ_PATH % model_name
     results_path = RESULTS_PATH % model_name
 
@@ -295,12 +297,6 @@ def avaliar_modelo_teste(
         file_.write("\nRelatório de Classificação por Classe:\n")
         file_.write(report_text)
 
-    # Salvar predições brutas
-    with open(predicoes_path, "w", encoding="utf-8") as f:
-        for pred in y_pred_str:
-            f.write(f"{pred}\n")
-    print(f"[OK] Predições salvas em '{predicoes_path}'")
-
     # Gerar e salvar Matriz de Confusão
     try:
         cm = confusion_matrix(y_test, y_pred_str, labels=label_encoder.classes_)
@@ -326,28 +322,29 @@ if __name__ == "__main__":
     # TODO: Adicionar os outros modelos para o treinamento
     models = [
         # Modelo, Hiperparametros, Usar Augmentation
-        #('lstm:baseline_aug', PARAM_GRID_LSTM, True),
-        #('lstm:baseline', PARAM_GRID_LSTM, False),
-        #('kmeans:processed_aug_15', PARAM_GRID_KMEANS, True),
-        #('kmeans:processed_15', PARAM_GRID_KMEANS, False),
-        #('kmeans_knn:processed_aug_15', PARAM_GRID_KMEANS_KNN, True),
-        #('kmeans_knn:processed_15', PARAM_GRID_KMEANS_KNN, False),
-        #('lstm:processed_aug_15', PARAM_GRID_LSTM, True),
-        #('lstm:processed_15', PARAM_GRID_LSTM, False),
+        
+        # Testes com sequências de 15 frames
+        ('kmeans:aug_15', PARAM_GRID_KMEANS, True),
+        ('kmeans:15', PARAM_GRID_KMEANS, False),
+        ('kmeans_knn:aug_15', PARAM_GRID_KMEANS_KNN, True),
+        ('kmeans_knn:15', PARAM_GRID_KMEANS_KNN, False),
+        ('lstm:15', PARAM_GRID_LSTM, False),
+        ('lstm:aug_15', PARAM_GRID_LSTM, True),
+
+        # Testes de underfitting usando apenas o dataset de treino
         #('kmeans:minds_aug', PARAM_GRID_KMEANS, True),
         #('kmeans:minds', PARAM_GRID_KMEANS, False),
         #('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),
         #('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN, False),
         #('lstm:minds', PARAM_GRID_LSTM, False),
-        ('lstm:minds_aug', PARAM_GRID_LSTM, True),
+        #('lstm:minds_aug', PARAM_GRID_LSTM, True),
     ]
 
     # Dataset é definido aqui, não possui opção de mudar
-    dataset_treino_processado = "dataset/treino_minds_70.csv"
-    dataset_teste_processado = "dataset/teste_minds_30.csv"
+    
     # Coleta dos dados no dtype=np.float32
-    X_train, y_train, groups_train = import_from_csv(dataset_treino_processado)
-    X_test, y_test, groups_test = import_from_csv(dataset_teste_processado)
+    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_15_CSV)
+    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_15_CSV)
 
     # Separação dos dados de treino e validação
     X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
