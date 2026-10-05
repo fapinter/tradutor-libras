@@ -66,7 +66,7 @@ vidos (80MB cada, ~60GB o dataset como um todo)
 geradas, quantidade de frames duplicado, quantidade de vídeos com padding e quantidade de frames de padding no gesto. 
 
 **`outputs/`** — Diretório contendo os relatórios dos resultados do treinamento dos modelos, como matrizes
-de confusão, predicoes_{modelo} e results_{model} mostrando as métricas do modelo treinado.
+de confusão e results_{model} mostrando as métricas do modelo treinado.
 
 
 ---

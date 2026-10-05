@@ -91,15 +91,15 @@ FRAMES_DIR = "dataset/frames"
 FRAMES_TREINO_DIR = "dataset/frames/treinamento"
 FRAMES_TESTE_DIR = "dataset/frames/teste"
 
-'''
-DATASET_TREINO_CSV = "dataset/treino.csv"
-DATASET_TESTE_CSV = "dataset/teste.csv"
 
-'''
+DATASET_TREINO_CSV = "dataset/treino_preprocessed.csv"
+DATASET_TESTE_CSV = "dataset/teste_preprocessed.csv"
 
+DATASET_TREINO_MINDS_CSV = "dataset/treino_minds_70.csv"
+DATASET_TESTE_MINDS_CSV = "dataset/teste_minds_30.csv"
 
-DATASET_TREINO_CSV = "dataset/treino_minds_70.csv"
-DATASET_TESTE_CSV = "dataset/teste_minds_30.csv"
+DATASET_TREINO_15_CSV = "dataset/treino_15.csv"
+DATASET_TESTE_15_CSV = "dataset/teste_15.csv"
 
 LOGS_DIR = "logs"
 MODELS_DIR = "models"
@@ -109,7 +109,6 @@ RESULTADOS_TREINO_CSV = "logs/resultados_treino.csv"
 GRID_SEARCH_RESULTS_CSV = "outputs/grid_search_results.csv"
 RELATORIO_AVALIACAO_TESTE = "outputs/relatorio_avaliacao_teste.txt"
 
-PREDICOES_PATH = "outputs/predicoes_%s.txt"
 MATRIZ_PATH = "outputs/matriz_%s.png"
 RESULTS_PATH = "outputs/results_%s.txt"
 

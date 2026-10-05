@@ -315,7 +315,7 @@ def import_from_csv(filepath: str):
     labels = np.array(labels)
     groups = np.array(groups)
 
-    return features, labels, groups
+    return features.astype(np.float32), labels, groups
 
 
 if __name__ == "__main__":
