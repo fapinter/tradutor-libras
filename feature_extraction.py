@@ -315,7 +315,7 @@ def import_from_csv(filepath: str):
     labels = np.array(labels)
     groups = np.array(groups)
 
-    return features, labels, groups
+    return features.astype(np.float32), labels, groups
 
 
 if __name__ == "__main__":
@@ -341,12 +341,29 @@ if __name__ == "__main__":
     #    output_path=DATASET_TESTE_PREPROCESS,
     #    preprocess=True
     #)
+    #print('Gerando dataset de TREINO')
+    #extract_features_from_directory(
+    #    dataset_root_dir=FRAMES_TREINO_DIR,
+    #    sequence_length=SEQUENCE_LENGTH,
+    #    step=DEFAULT_STEP,
+    #    output_path=DATASET_TREINO_CSV,
+    #)
+#
+#
+    #print('Gerando dataset de TESTE')
+    #extract_features_from_directory(
+    #    dataset_root_dir=FRAMES_TESTE_DIR,
+    #    sequence_length=SEQUENCE_LENGTH,
+    #    step=DEFAULT_STEP,
+    #    output_path=DATASET_TESTE_CSV,
+    #)
     print('Gerando dataset de TREINO')
     extract_features_from_directory(
         dataset_root_dir=FRAMES_TREINO_DIR,
         sequence_length=SEQUENCE_LENGTH,
         step=DEFAULT_STEP,
-        output_path=DATASET_TREINO_CSV,
+        output_path='dataset/treino_15.csv',
+        preprocess=True
     )
 
 
@@ -355,5 +372,6 @@ if __name__ == "__main__":
         dataset_root_dir=FRAMES_TESTE_DIR,
         sequence_length=SEQUENCE_LENGTH,
         step=DEFAULT_STEP,
-        output_path=DATASET_TESTE_CSV,
+        output_path='dataset/teste_15.csv',
+        preprocess=True
     )

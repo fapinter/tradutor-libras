@@ -22,7 +22,7 @@ HAND_CONNECTIONS = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5),
 
 VIDEO_EXTENSIONS = (".mp4", ".avi", ".mov")
 FRAME_RATE = 5
-SEQUENCE_LENGTH = 20
+SEQUENCE_LENGTH = 15
 DEFAULT_STEP = 5
 
 LANDMARKER_PATH = "utils/hand_landmarker.task"
@@ -91,8 +91,15 @@ FRAMES_DIR = "dataset/frames"
 FRAMES_TREINO_DIR = "dataset/frames/treinamento"
 FRAMES_TESTE_DIR = "dataset/frames/teste"
 
-DATASET_TREINO_CSV = "dataset/treino.csv"
-DATASET_TESTE_CSV = "dataset/teste.csv"
+
+DATASET_TREINO_CSV = "dataset/treino_preprocessed.csv"
+DATASET_TESTE_CSV = "dataset/teste_preprocessed.csv"
+
+DATASET_TREINO_MINDS_CSV = "dataset/treino_minds_70.csv"
+DATASET_TESTE_MINDS_CSV = "dataset/teste_minds_30.csv"
+
+DATASET_TREINO_15_CSV = "dataset/treino_15.csv"
+DATASET_TESTE_15_CSV = "dataset/teste_15.csv"
 
 LOGS_DIR = "logs"
 MODELS_DIR = "models"
@@ -102,9 +109,11 @@ RESULTADOS_TREINO_CSV = "logs/resultados_treino.csv"
 GRID_SEARCH_RESULTS_CSV = "outputs/grid_search_results.csv"
 RELATORIO_AVALIACAO_TESTE = "outputs/relatorio_avaliacao_teste.txt"
 
-PREDICOES_PATH = "outputs/predicoes_%s.txt"
 MATRIZ_PATH = "outputs/matriz_%s.png"
-RESULTS_PATH = "outputs/results_%s.png"
+RESULTS_PATH = "outputs/results_%s.txt"
+
+KERAS_PATH = "models/%s.keras"
+PICKLE_PATH = "models/%s.pkl"
 
 LSTM_PATH = "models/lstm_sign_model.keras"
 LSTM_PATH_AUG = "models/lstm_sign_model_aug.keras"

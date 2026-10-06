@@ -276,7 +276,7 @@ def gerar_amostras_aumentadas(features, labels, grupos, n_aumentos=N_AUMENTOS, s
         orig = originais_por_classe.get(classe, 0)
         print(f"  {classe}: {orig} → {qtd} amostras")
 
-    return np.array(features_aug), np.array(labels_aug), np.array(grupo_aug)
+    return np.array(features_aug).astype(np.float32), np.array(labels_aug), np.array(grupo_aug)
 
 
 if __name__ == "__main__":

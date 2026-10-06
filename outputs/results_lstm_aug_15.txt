@@ -1,0 +1,30 @@
+Total de Amostras de Teste: 93
+Acurácia no Teste: 50.54%
+F1-Score Macro:             45.13%
+Hiperparametros do lstm_aug_15: dict_items([('batch_size', 32), ('epochs', 100), ('model__dense_units', 64), ('model__dropout_rate', 0.4), ('model__learning_rate', 0.001), ('model__lstm_units_1', 64), ('model__lstm_units_2', 64)])
+Relatório de Classificação por Classe:
+              precision    recall  f1-score   support
+
+   acontecer       0.25      0.38      0.30         8
+       aluno       0.33      0.33      0.33         3
+     amarelo       0.57      1.00      0.73         4
+     america       0.78      1.00      0.88         7
+  aproveitar       0.33      0.14      0.20         7
+        bala       0.86      0.86      0.86         7
+       banco       0.00      0.00      0.00         5
+    banheiro       0.67      0.67      0.67         6
+     barulho       1.00      0.33      0.50         3
+    conhecer       0.60      0.43      0.50         7
+     espelho       0.27      1.00      0.43         3
+     esquina       0.67      0.50      0.57         4
+       filho       1.00      0.29      0.44         7
+        maca       0.00      0.00      0.00         2
+        medo       0.67      0.50      0.57         4
+        ruim       1.00      0.25      0.40         4
+        sapo       0.62      0.83      0.71         6
+      vacina       0.17      0.25      0.20         4
+     vontade       0.20      0.50      0.29         2
+
+    accuracy                           0.51        93
+   macro avg       0.53      0.49      0.45        93
+weighted avg       0.56      0.51      0.48        93

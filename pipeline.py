@@ -48,10 +48,6 @@ from feature_extraction import import_from_csv
 from landmark_augmentation import gerar_amostras_aumentadas
 from utils.constants import (
     ENCODER_PATH,
-    KMEANS_KNN_PATH,
-    KMEANS_PATH,
-    LSTM_PATH,
-    LSTM_PATH_AUG,
     MATRIZ_PATH,
     N_AUMENTOS,
     PARAM_GRID_KMEANS,
@@ -61,12 +57,24 @@ from utils.constants import (
     PARAM_GRID_XGBOOST,
     PREDICOES_PATH,
     SEED,
-    RESULTS_PATH
+    RESULTS_PATH,
+    KERAS_PATH,
+    PICKLE_PATH
 )
 
 from utils.utils import _salvar_log_treino
 
 tf.keras.backend.clear_session()
+
+class MemoryCleanupCallback(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        if epoch % 5 == 0:
+            gc.collect()
+
+    def on_train_end(self, logs=None):
+        tf.keras.backend.clear_session()
+        gc.collect()
+
 
 def splitTrainValidation(x_fit, y_fit, groups_fit):
     """
@@ -99,6 +107,22 @@ def splitTrainValidation(x_fit, y_fit, groups_fit):
     return x_train, y_train, groups_train, x_val, y_val, groups_val
 
 
+def criar_pipeline_kmeans():
+    return Pipeline([
+        ("compactar", SequenciaParaHistograma()),
+        ("scaler", StandardScaler()),
+        ("rf", RandomForestClassifier(max_depth=None,class_weight="balanced",random_state=SEED)),
+    ])
+
+
+def criar_pipeline_kmeans_knn():
+    return Pipeline([
+        ("compactar", SequenciaParaHistograma()),
+        ("scaler", StandardScaler()),
+        ("knn", KNeighborsClassifier(weights="distance")),
+    ])
+
+
 def create_lstm_model(
     input_shape, num_classes, lstm_units_1=128, 
     lstm_units_2=64, dense_units=64, dropout_rate=0.3, learning_rate=0.001
@@ -106,6 +130,7 @@ def create_lstm_model(
     """
         Constrói e compila o modelo LSTM com os hiperparâmetros fornecidos.
     """
+    tf.keras.backend.clear_session()
 
     model = Sequential([
         # Camada de entrada do Modelo
@@ -303,10 +328,8 @@ class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         frames_treino = X.reshape(-1, X.shape[-1])
-        self.kmeans_ = KMeans(n_clusters=self.n_clusters,
-                              random_state=SEED,
-                              n_init=10)
-        self.kmeans_.fit(frames_treino)
+        self.kmeans_ = KMeans(n_clusters=self.n_clusters, random_state=SEED, n_init=10)
+        self.kmeans_.fit(frames_treino, y)
         return self
 
     def transform(self, X):
@@ -319,12 +342,11 @@ class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
 
             for c in clusters_seq:
                 vetores[i, c] += 1
+
             vetores[i, :n_clusters] /= len(clusters_seq)
 
-            for c_atual, c_seguinte in zip(clusters_seq[:-1],
-                                           clusters_seq[1:]):
-                vetores[i, n_clusters + c_atual * n_clusters +
-                        c_seguinte] += 1
+            for c_atual, c_seguinte in zip(clusters_seq[:-1],clusters_seq[1:]):
+                vetores[i, n_clusters + c_atual * n_clusters +c_seguinte] += 1
             n_transicoes = max(len(clusters_seq) - 1, 1)
             vetores[i, n_clusters:] /= n_transicoes
 
@@ -447,9 +469,6 @@ def avaliar_modelo_teste(
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo
     """
-    model_name = model_name.replace(':', '_')
-
-    predicoes_path = PREDICOES_PATH % model_name
     matriz_path = MATRIZ_PATH % model_name
     results_path = RESULTS_PATH % model_name
 
@@ -483,12 +502,6 @@ def avaliar_modelo_teste(
 
         file_.write("\nRelatório de Classificação por Classe:\n")
         file_.write(report_text)
-
-    # Salvar predições brutas
-    with open(predicoes_path, "w", encoding="utf-8") as f:
-        for pred in y_pred_str:
-            f.write(f"{pred}\n")
-    print(f"[OK] Predições salvas em '{predicoes_path}'")
 
     # Gerar e salvar Matriz de Confusão
     try:
@@ -528,43 +541,46 @@ if __name__ == "__main__":
     ]
 
     # Dataset é definido aqui, não possui opção de mudar
-    dataset_treino_processado = "dataset/treino_preprocessed.csv"
-    dataset_teste_processado = "dataset/teste_preprocessed.csv"
-    X_train, y_train, groups_train = import_from_csv(dataset_treino_processado)
-    X_test, y_test, groups_test = import_from_csv(dataset_teste_processado)
+    
+    # Coleta dos dados no dtype=np.float32
+    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_15_CSV)
+    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_15_CSV)
 
-
+    # Separação dos dados de treino e validação
     X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
         x_fit=X_train, y_fit=y_train, groups_fit=groups_train
     )
-    print(X_train.shape)
-    print(y_train.shape)
+    # Data Augmentation offline (antes do treinamento)
     X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
-        X_train.tolist(), y_train.tolist(), groups_train.tolist(), n_aumentos=N_AUMENTOS
+        X_train_reduzido.tolist(), y_train_reduzido.tolist(), groups_train_reduzido.tolist(), n_aumentos=N_AUMENTOS
     )
 
     label_encoder = LabelEncoder()
-    y_train_encoded = label_encoder.fit_transform(y_train)
+    y_train_encoded = label_encoder.fit_transform(y_train_reduzido)
     y_train_reduzido_encoded = label_encoder.transform(y_train_reduzido)
     y_val_encoded = label_encoder.transform(y_val)
     num_labels = len(label_encoder.classes_)
 
-    print("Shape Dados  de Treino: ", X_train.shape)
-    print("Shape Labels de Treino: ", y_train.shape)
-    print("Shape Grupos de Treino: ", groups_train.shape)
+    print("Shape Dados  de Treino: ", X_train_reduzido.shape)
+    print("Shape Labels de Treino: ", y_train_reduzido.shape)
+    print("Shape Grupos de Treino: ", groups_train_reduzido.shape)
+    print("dtype X Treino: ", X_train_reduzido.dtype)
 
     print("Shape Dados  de Treino Augmentado: ", X_aug.shape)
     print("Shape Labels de Treino Augmentado: ", y_aug.shape)
     print("Shape Grupos de Treino Augmentado: ", group_aug.shape)
+    print("dtype X Treino Augmentado: ", X_aug.dtype)
 
 
     print("Shape Dados  de Validação: ", X_val.shape)
     print("Shape Labels de Validação: ", y_val.shape)
     print("Shape Grupos de Validação: ", groups_val.shape)
+    print("dtype X Validação: ", X_val.dtype)
 
     print("Shape Dados  de Teste: ", X_test.shape)
     print("Shape Labels de Teste: ", y_test.shape)
     print("Shape Grupos de Teste: ", groups_test.shape)
+    print("dtype X Teste: ", X_test.dtype)
 
 
     # F1-Score Macro como métrica para
@@ -572,15 +588,20 @@ if __name__ == "__main__":
     # pois realiza a análise de acerto das
     # classes com o mesmo peso para todas as classes
     scoring_method = "f1_macro"
-    for model_name, params, path_model, usar_augmentation in models:
+    for model_name, params, usar_augmentation in models:
+        # Redução do Uso de RAM
+        tf.keras.backend.clear_session()
+        gc.collect()
 
         if usar_augmentation:
             x_fit, y_fit, group_fit = X_aug, label_encoder.transform(y_aug), group_aug
         else:
-            x_fit, y_fit, group_fit = X_train, y_train_encoded, groups_train
+            x_fit, y_fit, group_fit = X_train_reduzido, y_train_reduzido_encoded, groups_train_reduzido
 
+        
         input_shape = (x_fit.shape[1], x_fit.shape[2])
-
+        print("Shape fit: ", x_fit.shape, y_fit.shape, group_fit.shape)
+        print("dtype X fit: ", x_fit.dtype)
         model_to_create = model_name.split(':')[0]
         match(model_to_create):
             case "lstm":
@@ -592,12 +613,13 @@ if __name__ == "__main__":
                     patience=10,
                     restore_best_weights=True
                 )
+                cleanup_cb = MemoryCleanupCallback()
                 model = KerasClassifier(
                     model=create_lstm_model,
                     model__input_shape=input_shape,
                     model__num_classes=num_labels,
                     verbose=0,
-                    callbacks=[early_stopping]
+                    callbacks=[early_stopping, cleanup_cb]
                 )
             case "kmeans":
                 model = criar_pipeline_kmeans()
@@ -638,6 +660,7 @@ if __name__ == "__main__":
         )
 
         # Realiza o teste e grava métricas em arquivos
+        model_name = model_name.replace(':', '_')
         avaliar_modelo_teste(
             model_name=model_name,
             model=best_model,
