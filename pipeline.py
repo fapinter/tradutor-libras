@@ -43,7 +43,7 @@ from tensorflow.keras.models import Sequential, Model
 from scikeras.wrappers import KerasClassifier
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
-
+from xgboost import XGBClassifier
 from feature_extraction import import_from_csv
 from landmark_augmentation import gerar_amostras_aumentadas
 from utils.constants import (
@@ -58,6 +58,7 @@ from utils.constants import (
     PARAM_GRID_KMEANS_KNN,
     PARAM_GRID_LSTM,
     PARAM_GRID_TCN,
+    PARAM_GRID_XGBOOST,
     PREDICOES_PATH,
     SEED,
     RESULTS_PATH
@@ -330,6 +331,26 @@ class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
         return vetores
 
 
+
+class SequenciaParaVetor(BaseEstimator, TransformerMixin):
+    """
+    Converte cada sequência temporal em um único vetor.
+
+    Exemplo:
+    (20 frames, 126 features) -> 2520 features
+
+    Mantém a posição de cada feature de cada frame,
+    permitindo o uso da sequência pelo XGBoost em formato 2D.
+    """
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X.reshape(X.shape[0], -1)
+    
+    
+
 def criar_pipeline_kmeans():
     return Pipeline([
         ("compactar", SequenciaParaHistograma()),
@@ -347,6 +368,20 @@ def criar_pipeline_kmeans_knn():
         ("knn", KNeighborsClassifier(weights="distance")),
     ])
 
+
+def criar_pipeline_xgboost():
+    return Pipeline([
+        ("flatten", SequenciaParaVetor()),
+        ("xgb", XGBClassifier(
+            objective="multi:softprob",
+            eval_metric="mlogloss",
+            tree_method="hist",
+            random_state=SEED,
+            n_jobs=1,
+        )),
+    ])
+    
+    
 
 def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val,
                     usa_validation_data=True):
@@ -489,6 +524,7 @@ if __name__ == "__main__":
         ('kmeans', PARAM_GRID_KMEANS, KMEANS_PATH, False),
         ('kmeans_knn', PARAM_GRID_KMEANS_KNN, KMEANS_KNN_PATH, False),
         ('tcn', PARAM_GRID_TCN, "models/tcn_sign_model.keras", False),
+        ('xgboost', PARAM_GRID_XGBOOST, "models/xgboost_sign_model.pkl", False),
     ]
 
     # Dataset é definido aqui, não possui opção de mudar
@@ -567,6 +603,8 @@ if __name__ == "__main__":
                 model = criar_pipeline_kmeans()
             case "kmeans_knn":
                 model = criar_pipeline_kmeans_knn()
+            case "xgboost":
+                model = criar_pipeline_xgboost()    
             case "tcn":
                 early_stopping = EarlyStopping(
                     monitor="val_loss",

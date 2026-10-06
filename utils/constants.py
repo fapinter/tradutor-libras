@@ -122,3 +122,10 @@ PARAM_GRID_TCN = {
     "batch_size": [16, 32],
     "epochs": [100],
 }
+
+PARAM_GRID_XGBOOST = {
+    "xgb__n_estimators": [200, 400],
+    "xgb__max_depth": [3, 6],
+    "xgb__learning_rate": [0.05, 0.1],
+    "xgb__subsample": [0.8, 1.0],
+}
