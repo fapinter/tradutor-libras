@@ -112,3 +112,13 @@ ENCODER_PATH = "models/label_encoder.pkl"
 
 KMEANS_PATH = "models/kmeans_sign_model.pkl"
 KMEANS_KNN_PATH = "models/kmeans_knn_sign_model.pkl"
+
+
+PARAM_GRID_TCN = {
+    "model__filters": [32, 64],
+    "model__dense_units": [32, 64],
+    "model__dropout_rate": [0.2, 0.4],
+    "model__learning_rate": [0.001, 0.0005],
+    "batch_size": [16, 32],
+    "epochs": [100],
+}
