@@ -11,7 +11,6 @@ Métricas de Avaliação:
 
 import pickle
 
-import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -29,36 +28,42 @@ from sklearn.model_selection import StratifiedGroupKFold, GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping, Callback
-from scikeras.wrappers import KerasClassifier
+from tensorflow.keras.layers import (
+    LSTM,
+    Dense,
+    Dropout,
+    Input,
+    Conv1D,
+    Add,
+    Activation,
+    GlobalAveragePooling1D,
+)
 
+from tensorflow.keras.models import Sequential, Model
+from scikeras.wrappers import KerasClassifier
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.optimizers import Adam
+from xgboost import XGBClassifier
 from feature_extraction import import_from_csv
 from landmark_augmentation import gerar_amostras_aumentadas
 from utils.constants import (
-    DATASET_TESTE_CSV,
-    DATASET_TREINO_CSV,
-    DATASET_TREINO_MINDS_CSV,
-    DATASET_TESTE_MINDS_CSV,
-    DATASET_TREINO_15_CSV,
-    DATASET_TESTE_15_CSV,
     ENCODER_PATH,
     MATRIZ_PATH,
     N_AUMENTOS,
     PARAM_GRID_KMEANS,
     PARAM_GRID_KMEANS_KNN,
     PARAM_GRID_LSTM,
+    PARAM_GRID_TCN,
+    PARAM_GRID_XGBOOST,
+    PREDICOES_PATH,
     SEED,
     RESULTS_PATH,
     KERAS_PATH,
     PICKLE_PATH
 )
-    
+
 from utils.utils import _salvar_log_treino
-import gc
-import os
+
 tf.keras.backend.clear_session()
 
 class MemoryCleanupCallback(Callback):
@@ -165,6 +170,152 @@ def create_lstm_model(
     )
     return model
 
+def tcn_residual_block(
+    x,
+    filters,
+    kernel_size,
+    dilation_rate,
+    dropout_rate,
+):
+    """
+    Bloco residual da TCN.
+
+    As convoluções dilatadas permitem analisar padrões temporais
+    em diferentes distâncias da sequência sem utilizar recorrência.
+    """
+
+    residual = x
+
+    # Primeira convolução temporal dilatada.
+    # padding="causal" preserva a ordem temporal:
+    # um instante não utiliza informações de frames futuros.
+    x = Conv1D(
+        filters=filters,
+        kernel_size=kernel_size,
+        padding="causal",
+        dilation_rate=dilation_rate,
+        activation="relu",
+    )(x)
+
+    # Regularização para reduzir overfitting.
+    x = Dropout(dropout_rate)(x)
+
+    # Segunda convolução temporal do bloco.
+    x = Conv1D(
+        filters=filters,
+        kernel_size=kernel_size,
+        padding="causal",
+        dilation_rate=dilation_rate,
+        activation="relu",
+    )(x)
+
+    x = Dropout(dropout_rate)(x)
+
+    # Ajusta a quantidade de canais do residual caso necessário.
+    # A entrada possui 126 features, enquanto a TCN pode utilizar
+    # 32 ou 64 filtros.
+    if residual.shape[-1] != filters:
+        residual = Conv1D(
+            filters=filters,
+            kernel_size=1,
+            padding="same",
+        )(residual)
+
+    # Conexão residual ajuda o treinamento de redes mais profundas.
+    x = Add()([x, residual])
+
+    return Activation("relu")(x)
+
+
+def create_tcn_model(
+    input_shape,
+    num_classes,
+    filters=64,
+    dense_units=64,
+    dropout_rate=0.3,
+    learning_rate=0.001,
+):
+    """
+    Cria a Temporal Convolutional Network para classificação
+    das sequências de landmarks do MediaPipe.
+
+    Entrada:
+        (frames, 126 features)
+
+    Exemplo:
+        (15, 126)
+        ou
+        (20, 126)
+    """
+
+    tf.keras.backend.clear_session()
+
+    inputs = Input(shape=input_shape)
+
+    x = inputs
+
+    # Dilatação 1: padrões entre frames próximos.
+    x = tcn_residual_block(
+        x,
+        filters=filters,
+        kernel_size=3,
+        dilation_rate=1,
+        dropout_rate=dropout_rate,
+    )
+
+    # Dilatação 2: aumenta o campo temporal observado.
+    x = tcn_residual_block(
+        x,
+        filters=filters,
+        kernel_size=3,
+        dilation_rate=2,
+        dropout_rate=dropout_rate,
+    )
+
+    # Dilatação 4: captura padrões de movimento mais longos.
+    x = tcn_residual_block(
+        x,
+        filters=filters,
+        kernel_size=3,
+        dilation_rate=4,
+        dropout_rate=dropout_rate,
+    )
+
+    # Resume toda a dimensão temporal em um vetor.
+    x = GlobalAveragePooling1D()(x)
+
+    # Combina as características temporais aprendidas.
+    x = Dense(
+        units=dense_units,
+        activation="relu",
+    )(x)
+
+    x = Dropout(dropout_rate)(x)
+
+    # Uma saída para cada gesto.
+    outputs = Dense(
+        units=num_classes,
+        activation="softmax",
+    )(x)
+
+    model = Model(
+        inputs=inputs,
+        outputs=outputs,
+        name="tcn_libras",
+    )
+
+    optimizer = Adam(
+        learning_rate=learning_rate
+    )
+
+    model.compile(
+        optimizer=optimizer,
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"],
+    )
+
+    return model
+
 
 class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
     """
@@ -201,7 +352,61 @@ class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
 
         return vetores
 
-def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val, usa_validation_data=True):
+
+
+class SequenciaParaVetor(BaseEstimator, TransformerMixin):
+    """
+    Converte cada sequência temporal em um único vetor.
+
+    Exemplo:
+    (20 frames, 126 features) -> 2520 features
+
+    Mantém a posição de cada feature de cada frame,
+    permitindo o uso da sequência pelo XGBoost em formato 2D.
+    """
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X.reshape(X.shape[0], -1)
+    
+    
+
+def criar_pipeline_kmeans():
+    return Pipeline([
+        ("compactar", SequenciaParaHistograma()),
+        ("scaler", StandardScaler()),
+        ("rf", RandomForestClassifier(max_depth=None,
+                                      class_weight="balanced",
+                                      random_state=SEED)),
+    ])
+
+
+def criar_pipeline_kmeans_knn():
+    return Pipeline([
+        ("compactar", SequenciaParaHistograma()),
+        ("scaler", StandardScaler()),
+        ("knn", KNeighborsClassifier(weights="distance")),
+    ])
+
+
+def criar_pipeline_xgboost():
+    return Pipeline([
+        ("flatten", SequenciaParaVetor()),
+        ("xgb", XGBClassifier(
+            objective="multi:softprob",
+            eval_metric="mlogloss",
+            tree_method="hist",
+            random_state=SEED,
+            n_jobs=1,
+        )),
+    ])
+    
+    
+
+def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val,
+                    usa_validation_data=True):
     """
     Executa GridSearchCV para um dado modelo (pipeline) e espaço de parâmetros.
 
@@ -230,10 +435,11 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         random_state=42
     )
 
-    if eh_modelo_keras:
+    if usa_validation_data:
         n_jobs = 2
     else:
         n_jobs = -1
+
     grid = GridSearchCV(
         estimator=model_used,
         param_grid=params,
@@ -319,25 +525,19 @@ def avaliar_modelo_teste(
 
 
 if __name__ == "__main__":
-    # TODO: Adicionar os outros modelos para o treinamento
-    models = [
-        # Modelo, Hiperparametros, Usar Augmentation
-        
-        # Testes com sequências de 15 frames
-        ('kmeans:aug_15', PARAM_GRID_KMEANS, True),
-        ('kmeans:15', PARAM_GRID_KMEANS, False),
-        ('kmeans_knn:aug_15', PARAM_GRID_KMEANS_KNN, True),
-        ('kmeans_knn:15', PARAM_GRID_KMEANS_KNN, False),
-        ('lstm:15', PARAM_GRID_LSTM, False),
-        ('lstm:aug_15', PARAM_GRID_LSTM, True),
+    LSTM_PROCESSED_AUG = "models/lstm_processed_aug.keras"
+    LSTM_PROCESSED = "models/lstm_processed.keras"
 
-        # Testes de underfitting usando apenas o dataset de treino
-        #('kmeans:minds_aug', PARAM_GRID_KMEANS, True),
-        #('kmeans:minds', PARAM_GRID_KMEANS, False),
-        #('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),
-        #('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN, False),
-        #('lstm:minds', PARAM_GRID_LSTM, False),
-        #('lstm:minds_aug', PARAM_GRID_LSTM, True),
+    models = [
+        # Modelo, Hiperparametros, Path binário, Usar Augmentation
+        ('lstm:baseline_aug', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
+        ('lstm:baseline', PARAM_GRID_LSTM, LSTM_PATH, False),
+        ('lstm:processed_aug', PARAM_GRID_LSTM, LSTM_PROCESSED_AUG, True),
+        ('lstm:processed', PARAM_GRID_LSTM, LSTM_PROCESSED, False),
+        ('kmeans', PARAM_GRID_KMEANS, KMEANS_PATH, False),
+        ('kmeans_knn', PARAM_GRID_KMEANS_KNN, KMEANS_KNN_PATH, False),
+        ('tcn', PARAM_GRID_TCN, "models/tcn_sign_model.keras", False),
+        ('xgboost', PARAM_GRID_XGBOOST, "models/xgboost_sign_model.pkl", False),
     ]
 
     # Dataset é definido aqui, não possui opção de mudar
@@ -425,10 +625,26 @@ if __name__ == "__main__":
                 model = criar_pipeline_kmeans()
             case "kmeans_knn":
                 model = criar_pipeline_kmeans_knn()
-            case default:
+            case "xgboost":
+                model = criar_pipeline_xgboost()    
+            case "tcn":
+                early_stopping = EarlyStopping(
+                    monitor="val_loss",
+                    patience=10,
+                    restore_best_weights=True
+                )
+
+                model = KerasClassifier(
+                    model=create_tcn_model,
+                    model__input_shape=input_shape,
+                    model__num_classes=num_labels,
+                    verbose=0,
+                    callbacks=[early_stopping]
+                )    
+            case _:
                 pass
 
-        eh_modelo_keras = model_to_create == "lstm"
+        eh_modelo_keras = model_to_create in ("lstm", "tcn")
 
         # Aplica o Grid Search no modelo
         best_model, best_params, best_score = applyGridSearch(
@@ -458,12 +674,6 @@ if __name__ == "__main__":
             usa_predict_proba=eh_modelo_keras,
         )
 
-        if eh_modelo_keras:
-            best_model.model_.save(KERAS_PATH % model_name)
-            print(f"[OK] Modelo {model_name} salvo em '{KERAS_PATH % model_name}'")
-        else:
-            joblib.dump(best_model, PICKLE_PATH % model_name, compress=3)
-            print(f"[OK] Modelo {model_name} salvo em '{PICKLE_PATH % model_name}'")
 
     # Armazena o LabelEncoder em disco
     with open(ENCODER_PATH, 'wb') as f:
