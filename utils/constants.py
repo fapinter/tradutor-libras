@@ -65,14 +65,38 @@ PARAM_GRID_LSTM = {
 
 # Hiperparametros Grid Search K-Means + Random Forest
 PARAM_GRID_KMEANS = {
-    "compactar__n_clusters": [70, 110],
-    "rf__n_estimators": [200, 400],
+    "compactar__n_clusters": [15, 30, 40, 50, 70, 100],
+    "rf__n_estimators": [100, 200, 300, 400, 500],
+    "rf__max_depth": [10, 20, 30, None],
+    "rf__min_samples_split": [2, 5, 10],
+    "rf__min_samples_leaf": [1, 2, 4],
+    "rf__max_features": ["sqrt", "log2"]
 }
 
 # Hiperparametros Grid Search K-Means + KNN
 PARAM_GRID_KMEANS_KNN = {
-    "compactar__n_clusters": [50, 70, 110],
-    "knn__n_neighbors": [1, 3, 5],
+    "compactar__n_clusters": [15, 30, 40, 50, 70, 100],
+    "knn__n_neighbors": [1, 3, 5, 7],
+    "knn__metric": ["euclidean", "manhattan", "cosine"],
+    "knn__weights": ["distance", "uniform"]
+}
+
+# Hiperparametros Grid Search Time Series K-Means + Random Forest
+PARAM_GRID_KMEANS_TIME = {
+    "compactar__n_clusters": [15, 30, 40, 50, 70, 100],
+    "compactar__metric": ["dtw", "softdtw", "euclidean"],
+    "rf__n_estimators": [100, 200, 300, 400, 500],
+    "rf__max_depth": [10, 20, 30, None],
+    "rf__min_samples_split": [2, 5, 10],
+    "rf__min_samples_leaf": [1, 2, 4],
+    "rf__max_features": ["sqrt", "log2"]
+}
+
+# Hiperparametros Grid Search Time Series K-Means + KNN
+PARAM_GRID_KMEANS_TIME_KNN = {
+    "compactar__n_clusters": [15, 30, 40, 50, 70, 100],
+    "compactar__metric": ["dtw", "softdtw", "euclidean"],
+    "knn__n_neighbors": [1, 3, 5, 7],
 }
 
 # Captura de Vídeo em Tempo Real
