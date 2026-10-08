@@ -282,7 +282,7 @@ if __name__ == "__main__":
         #('kmeans_knn:15', PARAM_GRID_KMEANS_KNN, False),
         #('lstm:15', PARAM_GRID_LSTM, False),
         #('lstm:aug_15', PARAM_GRID_LSTM, True),
-        ('kmeans_time:minds', PARAM_GRID_KMEANS, False),
+        #('kmeans_time:minds', PARAM_GRID_KMEANS_TIME, False),
         ('kmeans_time:minds_aug', PARAM_GRID_KMEANS_TIME, True),
         ('kmeans_time_knn:minds', PARAM_GRID_KMEANS_TIME_KNN, False),
         ('kmeans_time_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),

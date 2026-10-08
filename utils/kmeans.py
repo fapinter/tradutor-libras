@@ -40,14 +40,14 @@ class AgrupadorSeriesTemporais(BaseEstimator, TransformerMixin):
 
 def criar_time_kmeans_rf():
     return Pipeline([
-        ("compactar", AgrupadorSeriesTemporais(n_clusters=30, metric="dtw")), # softdtw ou euclidean tbm
+        ("compactar", AgrupadorSeriesTemporais(n_clusters=30, metric="softdtw")),
         ("scaler", StandardScaler()),
         ("rf", RandomForestClassifier(max_depth=None, class_weight="balanced", random_state=SEED)),
     ])
 
 def criar_time_kmeans_knn():
     return Pipeline([
-        ("compactar", AgrupadorSeriesTemporais(n_clusters=30, metric="dtw")), # softdtw ou euclidean tbm
+        ("compactar", AgrupadorSeriesTemporais(n_clusters=30, metric="softdtw")),
         ("scaler", StandardScaler()),
         ("knn", KNeighborsClassifier(weights="distance")),
     ])
