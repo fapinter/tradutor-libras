@@ -6,7 +6,13 @@ from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
+from joblib import Memory
+import numpy as np
 
+cache_kmeans_rf = Memory(location="utils/cache_kmeans_rf", verbose=0)
+cache_kmeans_knn = Memory(location="utils/cache_kmeans_knn", verbose=0)
+cache_kmeans_times_rf = Memory(location="utils/cache_kmeans_times_rf", verbose=0)
+cache_kmeans_times_knn = Memory(location="utils/cache_kmeans_times_knn", verbose=0)
 
 # Time Series KMeans
 class AgrupadorSeriesTemporais(BaseEstimator, TransformerMixin):
@@ -43,14 +49,14 @@ def criar_time_kmeans_rf():
         ("compactar", AgrupadorSeriesTemporais(n_clusters=30, metric="softdtw")),
         ("scaler", StandardScaler()),
         ("rf", RandomForestClassifier(max_depth=None, class_weight="balanced", random_state=SEED)),
-    ])
+    ], memory=cache_kmeans_times_rf)
 
 def criar_time_kmeans_knn():
     return Pipeline([
         ("compactar", AgrupadorSeriesTemporais(n_clusters=30, metric="softdtw")),
         ("scaler", StandardScaler()),
         ("knn", KNeighborsClassifier(weights="distance")),
-    ])
+    ], memory=cache_kmeans_times_knn)
 
 
 # KMeans RF e KNN
@@ -71,8 +77,7 @@ class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         n_clusters = self.n_clusters
-        vetores = np.zeros(
-            (len(X), n_clusters + n_clusters * n_clusters))
+        vetores = np.zeros((len(X), n_clusters + n_clusters * n_clusters))
 
         for i, seq in enumerate(X):
             clusters_seq = self.kmeans_.predict(seq)
@@ -94,7 +99,7 @@ def criar_pipeline_kmeans():
         ("compactar", SequenciaParaHistograma()),
         ("scaler", StandardScaler()),
         ("rf", RandomForestClassifier(max_depth=None,class_weight="balanced",random_state=SEED)),
-    ])
+    ], memory=cache_kmeans_times_rf)
 
 
 def criar_pipeline_kmeans_knn():
@@ -102,4 +107,4 @@ def criar_pipeline_kmeans_knn():
         ("compactar", SequenciaParaHistograma()),
         ("scaler", StandardScaler()),
         ("knn", KNeighborsClassifier(weights="distance")),
-    ])
+    ], memory=cache_kmeans_knn)

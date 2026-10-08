@@ -10,7 +10,8 @@ Métricas de Avaliação:
 """
 
 import pickle
-
+import time
+import sys
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -57,7 +58,11 @@ from utils.kmeans import (
     criar_time_kmeans_knn,
     criar_time_kmeans_rf,
     criar_pipeline_kmeans,
-    criar_pipeline_kmeans_knn
+    criar_pipeline_kmeans_knn,
+    cache_kmeans_knn,
+    cache_kmeans_times_rf,
+    cache_kmeans_rf,
+    cache_kmeans_times_knn
 )
 import gc
 import os
@@ -175,6 +180,9 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         model_used.set_params(
             fit__validation_data=(X_val, y_val)
         )
+        n_jobs = 2
+    else:
+        n_jobs = -1
 
     cv = StratifiedGroupKFold(
         n_splits=5,
@@ -182,10 +190,6 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         random_state=42
     )
 
-    if eh_modelo_keras:
-        n_jobs = 2
-    else:
-        n_jobs = -1
     grid = GridSearchCV(
         estimator=model_used,
         param_grid=params,
@@ -282,7 +286,7 @@ if __name__ == "__main__":
         #('kmeans_knn:15', PARAM_GRID_KMEANS_KNN, False),
         #('lstm:15', PARAM_GRID_LSTM, False),
         #('lstm:aug_15', PARAM_GRID_LSTM, True),
-        #('kmeans_time:minds', PARAM_GRID_KMEANS_TIME, False),
+        ('kmeans_time:minds', PARAM_GRID_KMEANS_TIME, False),
         ('kmeans_time:minds_aug', PARAM_GRID_KMEANS_TIME, True),
         ('kmeans_time_knn:minds', PARAM_GRID_KMEANS_TIME_KNN, False),
         ('kmeans_time_knn:minds_aug', PARAM_GRID_KMEANS_KNN, True),
@@ -301,7 +305,21 @@ if __name__ == "__main__":
         #('lstm:minds', PARAM_GRID_LSTM, False),
         #('lstm:minds_aug', PARAM_GRID_LSTM, True),
     ]
+    has_lstm = False
+    has_kmeans = False
+    for model_name,_,_ in models:
+        if model_name.startswith('lstm'):
+            has_lstm = True
+        elif model_name.startswith('kmeans'):
+            has_kmeans = True
 
+        if has_lstm and has_kmeans:
+            print('[ERRO] Não é permitido o treinamento de Kmeans e LSTM juntos\nFaça o treinamento em execuções diferentes')
+            sys.exit(1) 
+    if has_lstm:
+        TREINAR_REDE = True
+    else:
+        TREINAR_REDE = False
     # Dataset é definido aqui, não possui opção de mudar
     
     # Coleta dos dados no dtype=np.float32
@@ -313,9 +331,16 @@ if __name__ == "__main__":
         x_fit=X_train, y_fit=y_train, groups_fit=groups_train
     )
     # Data Augmentation offline (antes do treinamento)
-    X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
-        X_train_reduzido.tolist(), y_train_reduzido.tolist(), groups_train_reduzido.tolist(), n_aumentos=N_AUMENTOS
-    )
+
+    # Para a LSTM, os dados de validação são separados para o Early Stopping
+    if TREINAR_REDE:
+        X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
+            X_train_reduzido.tolist(), y_train_reduzido.tolist(), groups_train_reduzido.tolist(), n_aumentos=N_AUMENTOS
+        )
+    else:
+        X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
+            X_train.tolist(), y_train.tolist(), groups_train.tolist(), n_aumentos=N_AUMENTOS
+        )
 
     label_encoder = LabelEncoder()
     y_train_encoded = label_encoder.fit_transform(y_train_reduzido)
@@ -354,11 +379,13 @@ if __name__ == "__main__":
         # Redução do Uso de RAM
         tf.keras.backend.clear_session()
         gc.collect()
-
         if usar_augmentation:
             x_fit, y_fit, group_fit = X_aug, label_encoder.transform(y_aug), group_aug
         else:
-            x_fit, y_fit, group_fit = X_train_reduzido, y_train_reduzido_encoded, groups_train_reduzido
+            if TREINAR_REDE:
+                x_fit, y_fit, group_fit = X_train_reduzido, y_train_reduzido_encoded, groups_train_reduzido
+            else:
+                x_fit, y_fit, group_fit = X_train, y_train, groups_train
 
         
         input_shape = (x_fit.shape[1], x_fit.shape[2])
@@ -394,9 +421,9 @@ if __name__ == "__main__":
             case default:
                 pass
 
-        eh_modelo_keras = model_to_create == "lstm"
-
         # Aplica o Grid Search no modelo
+        start_time = time.perf_counter()
+        eh_modelo_keras = model_to_create == "lstm"
         best_model, best_params, best_score = applyGridSearch(
             model_used=model,
             params=params,
@@ -423,13 +450,21 @@ if __name__ == "__main__":
             augmentation=usar_augmentation,
             usa_predict_proba=eh_modelo_keras,
         )
-
+        end_time = time.perf_counter() - start_time
+        print(f'[OK] Modelo {model_name} Treinado em {end_time:.4f} segundos')
         if eh_modelo_keras:
             best_model.model_.save(KERAS_PATH % model_name)
             print(f"[OK] Modelo {model_name} salvo em '{KERAS_PATH % model_name}'")
         else:
             joblib.dump(best_model, PICKLE_PATH % model_name, compress=3)
             print(f"[OK] Modelo {model_name} salvo em '{PICKLE_PATH % model_name}'")
+
+        # Fallback para limpar arquivos temporários de cache
+        if not eh_modelo_keras:
+            cache_kmeans_knn.clear()
+            cache_kmeans_times_rf.clear()
+            cache_kmeans_rf.clear()
+            cache_kmeans_times_knn.clear()
 
     # Armazena o LabelEncoder em disco
     with open(ENCODER_PATH, 'wb') as f:
