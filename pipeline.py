@@ -10,13 +10,10 @@ Métricas de Avaliação:
 """
 
 import pickle
-
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.cluster import KMeans
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     accuracy_score,
@@ -25,25 +22,11 @@ from sklearn.metrics import (
     f1_score,
 )
 from sklearn.model_selection import StratifiedGroupKFold, GridSearchCV
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from tensorflow.keras.layers import (
-    LSTM,
-    Dense,
-    Dropout,
-    Input,
-    Conv1D,
-    Add,
-    Activation,
-    GlobalAveragePooling1D,
-)
-
-from tensorflow.keras.models import Sequential, Model
+from sklearn.model_selection import ParameterGrid
+from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.callbacks import EarlyStopping, Callback
+import gc
 from scikeras.wrappers import KerasClassifier
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.optimizers import Adam
-from xgboost import XGBClassifier
 from feature_extraction import import_from_csv
 from landmark_augmentation import gerar_amostras_aumentadas
 from utils.constants import (
@@ -55,16 +38,28 @@ from utils.constants import (
     PARAM_GRID_LSTM,
     PARAM_GRID_TCN,
     PARAM_GRID_XGBOOST,
-    PREDICOES_PATH,
-    SEED,
     RESULTS_PATH,
     KERAS_PATH,
-    PICKLE_PATH
+    PICKLE_PATH,
+    DATASET_TREINO_15_CSV,
+    DATASET_TESTE_15_CSV,
+    DATASET_TREINO_MINDS_CSV,
+    DATASET_TESTE_MINDS_CSV
 )
-
+import joblib
+import time
+from tqdm.auto import tqdm
+from utils.tqdm import tqdm_joblib
 from utils.utils import _salvar_log_treino
-
-tf.keras.backend.clear_session()
+from utils.kmeans import (
+    criar_pipeline_kmeans,
+    criar_pipeline_kmeans_knn
+)
+from utils.xgboost import criar_pipeline_xgboost
+from utils.lstm_tcn import(
+    create_lstm_model,
+    create_tcn_model
+)
 
 class MemoryCleanupCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
@@ -105,308 +100,14 @@ def splitTrainValidation(x_fit, y_fit, groups_fit):
         raise ValueError(f'Overlap entre grupos de Treino e Validação: {overlap}')    
 
     return x_train, y_train, groups_train, x_val, y_val, groups_val
+    
+    
 
-
-def criar_pipeline_kmeans():
-    return Pipeline([
-        ("compactar", SequenciaParaHistograma()),
-        ("scaler", StandardScaler()),
-        ("rf", RandomForestClassifier(max_depth=None,class_weight="balanced",random_state=SEED)),
-    ])
-
-
-def criar_pipeline_kmeans_knn():
-    return Pipeline([
-        ("compactar", SequenciaParaHistograma()),
-        ("scaler", StandardScaler()),
-        ("knn", KNeighborsClassifier(weights="distance")),
-    ])
-
-
-def create_lstm_model(
-    input_shape, num_classes, lstm_units_1=128, 
-    lstm_units_2=64, dense_units=64, dropout_rate=0.3, learning_rate=0.001
+def applyGridSearch(
+    model_used, params, scoring_method,
+    X_fit, y_fit, groups,
+    X_val, y_val, usa_validation_data=True
 ):
-    """
-        Constrói e compila o modelo LSTM com os hiperparâmetros fornecidos.
-    """
-    tf.keras.backend.clear_session()
-
-    model = Sequential([
-        # Camada de entrada do Modelo
-        Input(shape=input_shape),
-        # Primeira camada LSTM, aprende padrões temporais
-        # ao longo dos frames
-        LSTM(units=lstm_units_1, return_sequences=True),
-        # Reduz overfitting, desliga parte
-        # das ativações aleatoriamente
-        Dropout(dropout_rate),
-        # Segunda camada LSTM, recebe padrões temporais
-        # da primeira LSTM, gera representação final da
-        # sequência completa
-        LSTM(units=lstm_units_2, return_sequences=False),
-        # Reduz dependência excessiva de características
-        # específicas do treino
-        Dropout(dropout_rate),
-        # Combina características temporais, ReLU
-        # permite a representação de relações não linerares
-        # entre características extraídas da sequência
-        Dense(units=dense_units, activation="relu"),
-        # Auxiliar na generalização do modelo
-        Dropout(dropout_rate),
-        # Camada de Saída
-        # Um neurônio por classe
-        # Softmax permite a classificação multiclasse
-        Dense(units=num_classes, activation="softmax")
-    ])
-    # Adequado para o treinamento de redes recorrentes
-    optimizer = Adam(learning_rate=learning_rate)
-
-    # sparse_categorical_crossentropy: classes como inteiros (0, 1, 2, ...)
-    model.compile(
-        optimizer=optimizer,
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"]
-    )
-    return model
-
-def tcn_residual_block(
-    x,
-    filters,
-    kernel_size,
-    dilation_rate,
-    dropout_rate,
-):
-    """
-    Bloco residual da TCN.
-
-    As convoluções dilatadas permitem analisar padrões temporais
-    em diferentes distâncias da sequência sem utilizar recorrência.
-    """
-
-    residual = x
-
-    # Primeira convolução temporal dilatada.
-    # padding="causal" preserva a ordem temporal:
-    # um instante não utiliza informações de frames futuros.
-    x = Conv1D(
-        filters=filters,
-        kernel_size=kernel_size,
-        padding="causal",
-        dilation_rate=dilation_rate,
-        activation="relu",
-    )(x)
-
-    # Regularização para reduzir overfitting.
-    x = Dropout(dropout_rate)(x)
-
-    # Segunda convolução temporal do bloco.
-    x = Conv1D(
-        filters=filters,
-        kernel_size=kernel_size,
-        padding="causal",
-        dilation_rate=dilation_rate,
-        activation="relu",
-    )(x)
-
-    x = Dropout(dropout_rate)(x)
-
-    # Ajusta a quantidade de canais do residual caso necessário.
-    # A entrada possui 126 features, enquanto a TCN pode utilizar
-    # 32 ou 64 filtros.
-    if residual.shape[-1] != filters:
-        residual = Conv1D(
-            filters=filters,
-            kernel_size=1,
-            padding="same",
-        )(residual)
-
-    # Conexão residual ajuda o treinamento de redes mais profundas.
-    x = Add()([x, residual])
-
-    return Activation("relu")(x)
-
-
-def create_tcn_model(
-    input_shape,
-    num_classes,
-    filters=64,
-    dense_units=64,
-    dropout_rate=0.3,
-    learning_rate=0.001,
-):
-    """
-    Cria a Temporal Convolutional Network para classificação
-    das sequências de landmarks do MediaPipe.
-
-    Entrada:
-        (frames, 126 features)
-
-    Exemplo:
-        (15, 126)
-        ou
-        (20, 126)
-    """
-
-    tf.keras.backend.clear_session()
-
-    inputs = Input(shape=input_shape)
-
-    x = inputs
-
-    # Dilatação 1: padrões entre frames próximos.
-    x = tcn_residual_block(
-        x,
-        filters=filters,
-        kernel_size=3,
-        dilation_rate=1,
-        dropout_rate=dropout_rate,
-    )
-
-    # Dilatação 2: aumenta o campo temporal observado.
-    x = tcn_residual_block(
-        x,
-        filters=filters,
-        kernel_size=3,
-        dilation_rate=2,
-        dropout_rate=dropout_rate,
-    )
-
-    # Dilatação 4: captura padrões de movimento mais longos.
-    x = tcn_residual_block(
-        x,
-        filters=filters,
-        kernel_size=3,
-        dilation_rate=4,
-        dropout_rate=dropout_rate,
-    )
-
-    # Resume toda a dimensão temporal em um vetor.
-    x = GlobalAveragePooling1D()(x)
-
-    # Combina as características temporais aprendidas.
-    x = Dense(
-        units=dense_units,
-        activation="relu",
-    )(x)
-
-    x = Dropout(dropout_rate)(x)
-
-    # Uma saída para cada gesto.
-    outputs = Dense(
-        units=num_classes,
-        activation="softmax",
-    )(x)
-
-    model = Model(
-        inputs=inputs,
-        outputs=outputs,
-        name="tcn_libras",
-    )
-
-    optimizer = Adam(
-        learning_rate=learning_rate
-    )
-
-    model.compile(
-        optimizer=optimizer,
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"],
-    )
-
-    return model
-
-
-class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
-    """
-    Agrupa os frames em poses (K-Means) e resume cada sequência num histograma de
-    ocupação + transição entre poses consecutivas.
-    """
-
-    def __init__(self, n_clusters=110):
-        self.n_clusters = n_clusters
-
-    def fit(self, X, y=None):
-        frames_treino = X.reshape(-1, X.shape[-1])
-        self.kmeans_ = KMeans(n_clusters=self.n_clusters, random_state=SEED, n_init=10)
-        self.kmeans_.fit(frames_treino, y)
-        return self
-
-    def transform(self, X):
-        n_clusters = self.n_clusters
-        vetores = np.zeros(
-            (len(X), n_clusters + n_clusters * n_clusters))
-
-        for i, seq in enumerate(X):
-            clusters_seq = self.kmeans_.predict(seq)
-
-            for c in clusters_seq:
-                vetores[i, c] += 1
-
-            vetores[i, :n_clusters] /= len(clusters_seq)
-
-            for c_atual, c_seguinte in zip(clusters_seq[:-1],clusters_seq[1:]):
-                vetores[i, n_clusters + c_atual * n_clusters +c_seguinte] += 1
-            n_transicoes = max(len(clusters_seq) - 1, 1)
-            vetores[i, n_clusters:] /= n_transicoes
-
-        return vetores
-
-
-
-class SequenciaParaVetor(BaseEstimator, TransformerMixin):
-    """
-    Converte cada sequência temporal em um único vetor.
-
-    Exemplo:
-    (20 frames, 126 features) -> 2520 features
-
-    Mantém a posição de cada feature de cada frame,
-    permitindo o uso da sequência pelo XGBoost em formato 2D.
-    """
-
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X):
-        return X.reshape(X.shape[0], -1)
-    
-    
-
-def criar_pipeline_kmeans():
-    return Pipeline([
-        ("compactar", SequenciaParaHistograma()),
-        ("scaler", StandardScaler()),
-        ("rf", RandomForestClassifier(max_depth=None,
-                                      class_weight="balanced",
-                                      random_state=SEED)),
-    ])
-
-
-def criar_pipeline_kmeans_knn():
-    return Pipeline([
-        ("compactar", SequenciaParaHistograma()),
-        ("scaler", StandardScaler()),
-        ("knn", KNeighborsClassifier(weights="distance")),
-    ])
-
-
-def criar_pipeline_xgboost():
-    return Pipeline([
-        ("flatten", SequenciaParaVetor()),
-        ("xgb", XGBClassifier(
-            objective="multi:softprob",
-            eval_metric="mlogloss",
-            tree_method="hist",
-            random_state=SEED,
-            n_jobs=1,
-        )),
-    ])
-    
-    
-
-def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_val, y_val,
-                    usa_validation_data=True):
     """
     Executa GridSearchCV para um dado modelo (pipeline) e espaço de parâmetros.
 
@@ -448,22 +149,20 @@ def applyGridSearch(model_used, params, scoring_method, X_fit, y_fit, groups, X_
         n_jobs=n_jobs,
         verbose=1
     )
-    grid.fit(X_fit, y_fit, groups=groups)
+    total_fits = len(list(ParameterGrid(params))) * 5
+
+    # Barra de progresso do treinamento
+    with tqdm_joblib(tqdm(desc="Treinando GridSearchCV", total=total_fits)):
+        grid.fit(X_fit, y_fit, groups=groups)
     return grid.best_estimator_, grid.best_params_, grid.best_score_
 
 
 
 def avaliar_modelo_teste(
-    model_name,
-    model,
-    best_params,
-    label_encoder,
-    X_test,
-    y_test,
-    n_amostras_treino,
-    n_aumentos,
-    augmentation,
-    usa_predict_proba=True,
+    model_name, model, best_params,
+    label_encoder, X_test, y_test,
+    n_amostras_treino, n_aumentos, augmentation,
+    time, usa_predict_proba=True,
 ):
     """
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
@@ -489,17 +188,17 @@ def avaliar_modelo_teste(
     acc = accuracy_score(y_test_encoded, y_pred)
     f1_mac = f1_score(y_test_encoded, y_pred, average="macro", zero_division=0)
     report_text = str(classification_report(y_test, y_pred_str, zero_division=0, output_dict=False))
+    minutos_treino = time/60
+    print(f"Tempo total de Treino: {minutos_treino:.4f} minutos | {time/3600:.4f} horas")
 
-
-    _salvar_log_treino(model_name, acc, f1_mac, n_amostras_treino, augmentation, n_aumentos)
+    _salvar_log_treino(model_name, acc, f1_mac, n_amostras_treino, augmentation, n_aumentos, str(best_params.items()), minutos_treino)
     # Salva resultados em outputs/
     with open(results_path, 'w') as file_:
         file_.write(f"Total de Amostras de Teste: {len(y_test)}\n")
         file_.write(f"Acurácia no Teste: {acc * 100:.2f}%\n")
         file_.write(f"F1-Score Macro:             {f1_mac * 100:.2f}%\n")
-
+        file_.write(f"Tempo total de Treino: {time/60:.4f} minutos | {time/3600:.4f} horas")
         file_.write(f"Hiperparametros do {model_name}: {best_params.items()}")
-
         file_.write("\nRelatório de Classificação por Classe:\n")
         file_.write(report_text)
 
@@ -523,65 +222,65 @@ def avaliar_modelo_teste(
         print(f"[AVISO] Não foi possível salvar gráfico da matriz de confusão: {e}")
 
 
-
 if __name__ == "__main__":
-    LSTM_PROCESSED_AUG = "models/lstm_processed_aug.keras"
-    LSTM_PROCESSED = "models/lstm_processed.keras"
 
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation
-        ('lstm:baseline_aug', PARAM_GRID_LSTM, LSTM_PATH_AUG, True),
-        ('lstm:baseline', PARAM_GRID_LSTM, LSTM_PATH, False),
-        ('lstm:processed_aug', PARAM_GRID_LSTM, LSTM_PROCESSED_AUG, True),
-        ('lstm:processed', PARAM_GRID_LSTM, LSTM_PROCESSED, False),
-        ('kmeans', PARAM_GRID_KMEANS, KMEANS_PATH, False),
-        ('kmeans_knn', PARAM_GRID_KMEANS_KNN, KMEANS_KNN_PATH, False),
-        ('tcn', PARAM_GRID_TCN, "models/tcn_sign_model.keras", False),
-        ('xgboost', PARAM_GRID_XGBOOST, "models/xgboost_sign_model.pkl", False),
+        #('lstm:minds_aug', PARAM_GRID_LSTM, True),
+        #('lstm:minds', PARAM_GRID_LSTM,  False),
+        ('kmeans:minds_aug', PARAM_GRID_KMEANS,  True),
+        ('kmeans:minds', PARAM_GRID_KMEANS,  False),
+        ('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN,  True),
+        ('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN,  False),
+        #('tcn:minds_aug', PARAM_GRID_TCN,  True),
+        #('tcn:minds', PARAM_GRID_TCN,  False),
+        ('xgboost:minds_aug', PARAM_GRID_XGBOOST, True),
+        ('xgboost:minds', PARAM_GRID_XGBOOST, False),
     ]
+    has_network = False
+    has_classifier = False
+    for model_name,_,_ in models:
+        if model_name.startswith('lstm') or model_name.startswith('tcn'):
+            has_network = True
+        elif model_name.startswith('kmeans') or model_name.startswith('xgboost'):
+            has_kmeans = True
 
+        if has_network and has_classifier:
+            print('[ERRO] Não é permitido o treinamento de Kmeans e LSTM juntos\nFaça o treinamento em execuções diferentes')
+            sys.exit(1) 
+    if has_network:
+        TREINAR_REDE = True
+    else:
+        TREINAR_REDE = False
     # Dataset é definido aqui, não possui opção de mudar
     
     # Coleta dos dados no dtype=np.float32
-    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_15_CSV)
-    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_15_CSV)
+    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_MINDS_CSV)
+    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_MINDS_CSV)
 
     # Separação dos dados de treino e validação
     X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
         x_fit=X_train, y_fit=y_train, groups_fit=groups_train
     )
-    # Data Augmentation offline (antes do treinamento)
-    X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
-        X_train_reduzido.tolist(), y_train_reduzido.tolist(), groups_train_reduzido.tolist(), n_aumentos=N_AUMENTOS
-    )
 
     label_encoder = LabelEncoder()
-    y_train_encoded = label_encoder.fit_transform(y_train_reduzido)
+    # Data Augmentation offline (antes do treinamento)
+    # Para a LSTM e TCN, os dados de validação são separados para o Early Stopping
+    if TREINAR_REDE:
+        X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
+            X_train_reduzido.tolist(), y_train_reduzido.tolist(), groups_train_reduzido.tolist(), n_aumentos=N_AUMENTOS
+        )
+        label_encoder.fit_transform(y_train_reduzido)
+    else:
+        X_aug, y_aug, group_aug = gerar_amostras_aumentadas(
+            X_train.tolist(), y_train.tolist(), groups_train.tolist(), n_aumentos=N_AUMENTOS
+        )
+        label_encoder.fit_transform(y_train)
+
     y_train_reduzido_encoded = label_encoder.transform(y_train_reduzido)
+    y_train_encoded = label_encoder.transform(y_train)
     y_val_encoded = label_encoder.transform(y_val)
     num_labels = len(label_encoder.classes_)
-
-    print("Shape Dados  de Treino: ", X_train_reduzido.shape)
-    print("Shape Labels de Treino: ", y_train_reduzido.shape)
-    print("Shape Grupos de Treino: ", groups_train_reduzido.shape)
-    print("dtype X Treino: ", X_train_reduzido.dtype)
-
-    print("Shape Dados  de Treino Augmentado: ", X_aug.shape)
-    print("Shape Labels de Treino Augmentado: ", y_aug.shape)
-    print("Shape Grupos de Treino Augmentado: ", group_aug.shape)
-    print("dtype X Treino Augmentado: ", X_aug.dtype)
-
-
-    print("Shape Dados  de Validação: ", X_val.shape)
-    print("Shape Labels de Validação: ", y_val.shape)
-    print("Shape Grupos de Validação: ", groups_val.shape)
-    print("dtype X Validação: ", X_val.dtype)
-
-    print("Shape Dados  de Teste: ", X_test.shape)
-    print("Shape Labels de Teste: ", y_test.shape)
-    print("Shape Grupos de Teste: ", groups_test.shape)
-    print("dtype X Teste: ", X_test.dtype)
-
 
     # F1-Score Macro como métrica para
     # garantir os melhores parâmetros
@@ -596,8 +295,10 @@ if __name__ == "__main__":
         if usar_augmentation:
             x_fit, y_fit, group_fit = X_aug, label_encoder.transform(y_aug), group_aug
         else:
-            x_fit, y_fit, group_fit = X_train_reduzido, y_train_reduzido_encoded, groups_train_reduzido
-
+            if TREINAR_REDE:
+                x_fit, y_fit, group_fit = X_train_reduzido, y_train_reduzido_encoded, groups_train_reduzido
+            else:
+                x_fit, y_fit, group_fit = X_train, y_train_encoded, groups_train
         
         input_shape = (x_fit.shape[1], x_fit.shape[2])
         print("Shape fit: ", x_fit.shape, y_fit.shape, group_fit.shape)
@@ -639,13 +340,13 @@ if __name__ == "__main__":
                     model__input_shape=input_shape,
                     model__num_classes=num_labels,
                     verbose=0,
-                    callbacks=[early_stopping]
+                    callbacks=[early_stopping, cleanup_cb]
                 )    
             case _:
                 pass
 
         eh_modelo_keras = model_to_create in ("lstm", "tcn")
-
+        start_time = time.perf_counter()
         # Aplica o Grid Search no modelo
         best_model, best_params, best_score = applyGridSearch(
             model_used=model,
@@ -658,7 +359,7 @@ if __name__ == "__main__":
             y_val=y_val_encoded,
             usa_validation_data=eh_modelo_keras,
         )
-
+        end_time = time.perf_counter() - start_time
         # Realiza o teste e grava métricas em arquivos
         model_name = model_name.replace(':', '_')
         avaliar_modelo_teste(
@@ -672,7 +373,15 @@ if __name__ == "__main__":
             n_aumentos=N_AUMENTOS,
             augmentation=usar_augmentation,
             usa_predict_proba=eh_modelo_keras,
+            time=end_time
         )
+        if eh_modelo_keras:
+            best_model.model_.save(KERAS_PATH % model_name)
+            print(f'[OK] Modelo {model_name} salvo em "{KERAS_PATH % model_name}"')
+        else:
+            joblib.dump(best_model, PICKLE_PATH % model_name, compress=3)
+            print(f'[OK] Modelo {model_name} salvo em "{PICKLE_PATH % model_name}"')
+
 
 
     # Armazena o LabelEncoder em disco

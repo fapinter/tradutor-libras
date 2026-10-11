@@ -65,14 +65,31 @@ PARAM_GRID_LSTM = {
 
 # Hiperparametros Grid Search K-Means + Random Forest
 PARAM_GRID_KMEANS = {
-    "compactar__n_clusters": [70, 110],
-    "rf__n_estimators": [200, 400],
+    "compactar__n_clusters": [30, 50, 70],
+    "rf__n_estimators": [200, 300],
+    "rf__max_depth": [20, 30, None]
 }
 
 # Hiperparametros Grid Search K-Means + KNN
 PARAM_GRID_KMEANS_KNN = {
-    "compactar__n_clusters": [50, 70, 110],
-    "knn__n_neighbors": [1, 3, 5],
+    "compactar__n_clusters": [30, 50, 70],
+    "knn__n_neighbors": [3, 5, 7],
+}
+
+PARAM_GRID_TCN = {
+    "model__filters": [32, 64],
+    "model__dense_units": [32, 64],
+    "model__dropout_rate": [0.2, 0.4],
+    "model__learning_rate": [0.001, 0.0005],
+    "batch_size": [16, 32],
+    "epochs": [100],
+}
+
+PARAM_GRID_XGBOOST = {
+    "xgb__n_estimators": [200, 400],
+    "xgb__max_depth": [3, 6],
+    "xgb__learning_rate": [0.05, 0.1],
+    "xgb__subsample": [0.8, 1.0],
 }
 
 # Captura de Vídeo em Tempo Real
@@ -114,27 +131,4 @@ RESULTS_PATH = "outputs/results_%s.txt"
 
 KERAS_PATH = "models/%s.keras"
 PICKLE_PATH = "models/%s.pkl"
-
-LSTM_PATH = "models/lstm_sign_model.keras"
-LSTM_PATH_AUG = "models/lstm_sign_model_aug.keras"
-ENCODER_PATH = "models/label_encoder.pkl"
-
-KMEANS_PATH = "models/kmeans_sign_model.pkl"
-KMEANS_KNN_PATH = "models/kmeans_knn_sign_model.pkl"
-
-
-PARAM_GRID_TCN = {
-    "model__filters": [32, 64],
-    "model__dense_units": [32, 64],
-    "model__dropout_rate": [0.2, 0.4],
-    "model__learning_rate": [0.001, 0.0005],
-    "batch_size": [16, 32],
-    "epochs": [100],
-}
-
-PARAM_GRID_XGBOOST = {
-    "xgb__n_estimators": [200, 400],
-    "xgb__max_depth": [3, 6],
-    "xgb__learning_rate": [0.05, 0.1],
-    "xgb__subsample": [0.8, 1.0],
-}
+ENCODER_PATH = "model/label_encoder.pkl"
