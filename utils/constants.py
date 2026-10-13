@@ -128,7 +128,8 @@ RELATORIO_AVALIACAO_TESTE = "outputs/relatorio_avaliacao_teste.txt"
 
 MATRIZ_PATH = "outputs/matriz_%s.png"
 RESULTS_PATH = "outputs/results_%s.txt"
+LOSS_PATH = "outputs/acc_%s.png"
 
 KERAS_PATH = "models/%s.keras"
 PICKLE_PATH = "models/%s.pkl"
-ENCODER_PATH = "model/label_encoder.pkl"
+ENCODER_PATH = "models/label_encoder.pkl"

@@ -44,7 +44,8 @@ from utils.constants import (
     DATASET_TREINO_15_CSV,
     DATASET_TESTE_15_CSV,
     DATASET_TREINO_MINDS_CSV,
-    DATASET_TESTE_MINDS_CSV
+    DATASET_TESTE_MINDS_CSV,
+    LOSS_PATH
 )
 import joblib
 import time
@@ -191,13 +192,22 @@ def avaliar_modelo_teste(
     minutos_treino = time/60
     print(f"Tempo total de Treino: {minutos_treino:.4f} minutos | {time/3600:.4f} horas")
 
-    _salvar_log_treino(model_name, acc, f1_mac, n_amostras_treino, augmentation, n_aumentos, str(best_params.items()), minutos_treino)
+    if usa_predict_proba:
+        epoca_parada = len(model.history_["loss"])
+    else:
+        epoca_parada = None
+    _salvar_log_treino(
+        model_name, acc, f1_mac,
+        n_amostras_treino, augmentation, n_aumentos, 
+        str(best_params.items()), minutos_treino, epoca_parada
+    )
     # Salva resultados em outputs/
     with open(results_path, 'w') as file_:
         file_.write(f"Total de Amostras de Teste: {len(y_test)}\n")
         file_.write(f"Acurácia no Teste: {acc * 100:.2f}%\n")
         file_.write(f"F1-Score Macro:             {f1_mac * 100:.2f}%\n")
-        file_.write(f"Tempo total de Treino: {time/60:.4f} minutos | {time/3600:.4f} horas")
+        file_.write(f"Tempo total de Treino: {time/60:.4f} minutos | {time/3600:.4f} horas\n")
+        file_.write(f"Época parada: {epoca_parada}")
         file_.write(f"Hiperparametros do {model_name}: {best_params.items()}")
         file_.write("\nRelatório de Classificação por Classe:\n")
         file_.write(report_text)
@@ -217,9 +227,44 @@ def avaliar_modelo_teste(
         plt.tight_layout()
         plt.savefig(matriz_path, dpi=150, bbox_inches="tight")
         plt.close(fig)
-
     except Exception as e:
         print(f"[AVISO] Não foi possível salvar gráfico da matriz de confusão: {e}")
+
+    try:
+        if epoca_parada:
+            loss_path = LOSS_PATH % model_name
+            history = model.history_
+            
+            # Identificar chaves de acurácia compatíveis com a versão do TensorFlow
+            acc_key = 'accuracy' if 'accuracy' in history else 'acc'
+            val_acc_key = 'val_accuracy' if 'val_accuracy' in history else 'val_acc'
+            # Definir o eixo X (épocas)
+            epocas = range(1, len(history[acc_key]) + 1)
+            ultima_epoca = len(epocas)
+            
+            # Criar o gráfico
+            plt.figure(figsize=(10, 6))
+            
+            plt.plot(epocas, history[acc_key], label='Acurácia no Treino', marker='o', color='#1f77b4', linewidth=2)
+            plt.plot(epocas, history[val_acc_key], label='Acurácia na Validação', marker='s', color='#ff7f0e', linewidth=2)
+            
+            # Adicionar uma linha vertical marcando onde o Early Stopping atuou
+            plt.axvline(
+                x=ultima_epoca, color='red', linestyle=':', 
+                label=f'Early Stopping (Época {ultima_epoca})'
+            )
+            
+            # Estilização
+            plt.title('Análise de Overfitting: Treino vs Validação (Melhor Modelo)', fontsize=14)
+            plt.xlabel('Épocas', fontsize=12)
+            plt.ylabel('Acurácia', fontsize=12)
+            plt.legend(loc='lower right', fontsize=11)
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.tight_layout()
+            plt.savefig(loss_path, dpi=150, bbox_inches="tight")
+
+    except Exception as e:
+        print(f"[AVISO] Não foi possível salvar gráfico da acurácia da rede: {e}")
 
 
 if __name__ == "__main__":
@@ -228,14 +273,14 @@ if __name__ == "__main__":
         # Modelo, Hiperparametros, Path binário, Usar Augmentation
         #('lstm:minds_aug', PARAM_GRID_LSTM, True),
         #('lstm:minds', PARAM_GRID_LSTM,  False),
-        ('kmeans:minds_aug', PARAM_GRID_KMEANS,  True),
-        ('kmeans:minds', PARAM_GRID_KMEANS,  False),
-        ('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN,  True),
-        ('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN,  False),
-        #('tcn:minds_aug', PARAM_GRID_TCN,  True),
-        #('tcn:minds', PARAM_GRID_TCN,  False),
-        ('xgboost:minds_aug', PARAM_GRID_XGBOOST, True),
-        ('xgboost:minds', PARAM_GRID_XGBOOST, False),
+        ('tcn:aug_15', PARAM_GRID_TCN,  True),
+        ('tcn:15', PARAM_GRID_TCN,  False),
+        #('xgboost:minds_aug', PARAM_GRID_XGBOOST, True),
+        #('xgboost:minds', PARAM_GRID_XGBOOST, False),
+        #('kmeans:minds_aug', PARAM_GRID_KMEANS,  True),
+        #('kmeans:minds', PARAM_GRID_KMEANS,  False),
+        #('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN,  True),
+        #('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN,  False),
     ]
     has_network = False
     has_classifier = False
@@ -255,8 +300,8 @@ if __name__ == "__main__":
     # Dataset é definido aqui, não possui opção de mudar
     
     # Coleta dos dados no dtype=np.float32
-    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_MINDS_CSV)
-    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_MINDS_CSV)
+    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_15_CSV)
+    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_15_CSV)
 
     # Separação dos dados de treino e validação
     X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
@@ -334,7 +379,7 @@ if __name__ == "__main__":
                     patience=10,
                     restore_best_weights=True
                 )
-
+                cleanup_cb = MemoryCleanupCallback()
                 model = KerasClassifier(
                     model=create_tcn_model,
                     model__input_shape=input_shape,

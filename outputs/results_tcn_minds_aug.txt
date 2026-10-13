@@ -1,0 +1,31 @@
+Total de Amostras de Teste: 508
+Acurácia no Teste: 93.70%
+F1-Score Macro:             93.34%
+Tempo total de Treino: 66.7996 minutos | 1.1133 horas
+Época parada: 38Hiperparametros do tcn_minds_aug: dict_items([('batch_size', 32), ('epochs', 100), ('model__dense_units', 32), ('model__dropout_rate', 0.4), ('model__filters', 64), ('model__learning_rate', 0.0005)])
+Relatório de Classificação por Classe:
+              precision    recall  f1-score   support
+
+   acontecer       1.00      0.91      0.95        22
+       aluno       0.97      0.97      0.97        30
+     amarelo       0.91      0.91      0.91        34
+     america       1.00      1.00      1.00        29
+  aproveitar       0.80      0.86      0.83        14
+        bala       0.88      0.97      0.92        29
+       banco       0.95      0.81      0.88        26
+    banheiro       0.91      0.91      0.91        23
+     barulho       1.00      0.94      0.97        32
+    conhecer       1.00      0.96      0.98        25
+     espelho       1.00      0.97      0.98        30
+     esquina       0.93      0.90      0.91        29
+       filho       0.86      1.00      0.93        25
+        maca       0.88      0.81      0.85        27
+        medo       0.83      0.95      0.88        20
+        ruim       1.00      0.93      0.96        27
+        sapo       0.89      0.97      0.93        33
+      vacina       1.00      1.00      1.00        25
+     vontade       0.97      1.00      0.98        28
+
+    accuracy                           0.94       508
+   macro avg       0.94      0.93      0.93       508
+weighted avg       0.94      0.94      0.94       508

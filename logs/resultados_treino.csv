@@ -1,4 +1,4 @@
-data_hora,modelo,acuracia_%,f1_macro_%,amostras_treino,augmentation,n_aumentos,tempo_min,hiperparametros
+data_hora,modelo,acuracia_%,f1_macro_%,amostras_treino,augmentation,n_aumentos,tempo_min,epoca_parada,hiperparametros
 2026-09-20 15:08:01,lstm,50.00,47.55,8052,sim,5
 2026-09-20 15:38:08,lstm,40.00,35.17,1342,nao,0
 2026-09-21 10:19:37,lstm_aug,47.50,43.52,8052,sim,5
@@ -31,3 +31,15 @@ data_hora,modelo,acuracia_%,f1_macro_%,amostras_treino,augmentation,n_aumentos,t
 2026-10-02 09:47:14,kmeans_knn_15,19.35,14.41,1918,nao,0
 2026-10-02 11:34:08,lstm_15,41.94,37.08,1918,nao,0
 2026-10-02 21:26:43,lstm_aug_15,50.54,45.13,11508,sim,5
+2026-10-11 15:37:35,xgboost_minds_aug,87.20,86.88,7032,sim,5,225.8726,None,"dict_items([('xgb__learning_rate', 0.1), ('xgb__max_depth', 3), ('xgb__n_estimators', 400), ('xgb__subsample', 0.8)])"
+2026-10-11 16:50:20,xgboost_minds,84.25,83.70,1172,nao,0,72.7067,None,"dict_items([('xgb__learning_rate', 0.05), ('xgb__max_depth', 6), ('xgb__n_estimators', 400), ('xgb__subsample', 0.8)])"
+2026-10-11 17:10:38,kmeans_minds_aug,59.06,56.68,7032,sim,5,20.2737,None,"dict_items([('compactar__n_clusters', 70), ('rf__max_depth', 30), ('rf__n_estimators', 300)])"
+2026-10-11 17:12:28,kmeans_minds,61.61,60.18,1172,nao,0,1.7919,None,"dict_items([('compactar__n_clusters', 70), ('rf__max_depth', 30), ('rf__n_estimators', 200)])"
+2026-10-11 17:21:40,kmeans_knn_minds_aug,38.98,37.58,7032,sim,5,9.1762,None,"dict_items([('compactar__n_clusters', 70), ('knn__n_neighbors', 5)])"
+2026-10-11 17:22:35,kmeans_knn_minds,43.50,42.30,1172,nao,0,0.8386,None,"dict_items([('compactar__n_clusters', 70), ('knn__n_neighbors', 3)])"
+2026-10-12 06:47:00,xgboost_aug_15,51.61,45.37,14382,sim,5,288.1038,None,"dict_items([('xgb__learning_rate', 0.05), ('xgb__max_depth', 6), ('xgb__n_estimators', 400), ('xgb__subsample', 0.8)])"
+2026-10-12 08:18:07,xgboost_15,38.71,30.97,2397,nao,0,91.0777,None,"dict_items([('xgb__learning_rate', 0.05), ('xgb__max_depth', 3), ('xgb__n_estimators', 400), ('xgb__subsample', 0.8)])"
+2026-10-12 13:04:47,tcn_minds_aug,93.70,93.34,5622,sim,5,38,66.7996,"dict_items([('batch_size', 32), ('epochs', 100), ('model__dense_units', 32), ('model__dropout_rate', 0.4), ('model__filters', 64), ('model__learning_rate', 0.0005)])"
+2026-10-12 14:15:26,tcn_minds,91.54,90.66,937,nao,0,51,70.6044,"dict_items([('batch_size', 16), ('epochs', 100), ('model__dense_units', 64), ('model__dropout_rate', 0.4), ('model__filters', 64), ('model__learning_rate', 0.0005)])"
+2026-10-13 10:09:22,tcn_aug_15,52.69,49.00,11508,sim,5,23,89.7907,"dict_items([('batch_size', 16), ('epochs', 100), ('model__dense_units', 32), ('model__dropout_rate', 0.4), ('model__filters', 64), ('model__learning_rate', 0.001)])"
+2026-10-13 11:15:42,tcn_15,43.01,38.82,1918,nao,0,86,66.3009,"dict_items([('batch_size', 32), ('epochs', 100), ('model__dense_units', 32), ('model__dropout_rate', 0.4), ('model__filters', 32), ('model__learning_rate', 0.001)])"

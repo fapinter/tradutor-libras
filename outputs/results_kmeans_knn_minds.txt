@@ -1,30 +1,30 @@
 Total de Amostras de Teste: 508
-Acurácia no Teste: 41.34%
-F1-Score Macro:             40.26%
-Hiperparametros do kmeans_knn_minds: dict_items([('compactar__n_clusters', 70), ('knn__n_neighbors', 1)])
+Acurácia no Teste: 43.50%
+F1-Score Macro:             42.30%
+Tempo total de Treino: 0.8386 minutos | 0.0140 horasHiperparametros do kmeans_knn_minds: dict_items([('compactar__n_clusters', 70), ('knn__n_neighbors', 3)])
 Relatório de Classificação por Classe:
               precision    recall  f1-score   support
 
-   acontecer       0.26      0.23      0.24        22
-       aluno       0.42      0.73      0.53        30
-     amarelo       0.91      0.29      0.44        34
-     america       0.55      0.79      0.65        29
-  aproveitar       0.17      0.21      0.19        14
-        bala       0.17      0.21      0.19        29
-       banco       0.38      0.31      0.34        26
-    banheiro       0.52      0.61      0.56        23
-     barulho       0.44      0.38      0.41        32
-    conhecer       0.35      0.28      0.31        25
-     espelho       0.81      0.70      0.75        30
-     esquina       1.00      0.41      0.59        29
-       filho       0.42      0.40      0.41        25
-        maca       0.17      0.19      0.18        27
-        medo       0.09      0.10      0.09        20
-        ruim       0.84      0.59      0.70        27
-        sapo       0.73      0.33      0.46        33
-      vacina       0.18      0.24      0.21        25
-     vontade       0.31      0.61      0.41        28
+   acontecer       0.56      0.23      0.32        22
+       aluno       0.52      0.77      0.62        30
+     amarelo       0.67      0.41      0.51        34
+     america       0.96      0.79      0.87        29
+  aproveitar       0.33      0.43      0.38        14
+        bala       0.18      0.14      0.16        29
+       banco       0.32      0.27      0.29        26
+    banheiro       0.24      0.22      0.23        23
+     barulho       0.45      0.62      0.53        32
+    conhecer       0.35      0.24      0.29        25
+     espelho       0.68      0.50      0.58        30
+     esquina       0.59      0.69      0.63        29
+       filho       0.34      0.44      0.39        25
+        maca       0.47      0.33      0.39        27
+        medo       0.12      0.20      0.15        20
+        ruim       0.86      0.67      0.75        27
+        sapo       0.70      0.21      0.33        33
+      vacina       0.33      0.28      0.30        25
+     vontade       0.23      0.61      0.33        28
 
-    accuracy                           0.41       508
-   macro avg       0.46      0.40      0.40       508
-weighted avg       0.49      0.41      0.42       508
+    accuracy                           0.44       508
+   macro avg       0.47      0.42      0.42       508
+weighted avg       0.49      0.44      0.44       508
