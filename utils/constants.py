@@ -27,6 +27,19 @@ DEFAULT_STEP = 5
 
 LANDMARKER_PATH = "utils/hand_landmarker.task"
 
+# Constantes do YOLO (detecção de landmarks das mãos)
+# Modelo YOLO-Pose treinado no dataset hand-keypoints da Ultralytics
+# (21 keypoints na mesma ordem do MediaPipe)
+YOLO_HAND_MODEL_PATH = "utils/yolo_hand_pose.pt"
+YOLO_DATASET_YAML = "utils/hand-keypoints.yaml"
+# Pesos pré-treinados (COCO-Pose) usados como ponto de partida do treinamento
+YOLO_MODELO_BASE = "yolo26n-pose.pt"
+YOLO_CONFIANCA = 0.5
+# Confiança mínima dos keypoints usados na normalização (pulso, base indicador, base mínimo)
+YOLO_CONFIANCA_KPT = 0.5
+# Distância média máxima (coordenadas normalizadas) para considerar duas detecções a mesma mão
+DIST_MAX_MESMA_MAO = 0.15
+
 # Parâmetros de Data Augmentation
 AUG_NOISE_INTENSITY = 0.005
 
