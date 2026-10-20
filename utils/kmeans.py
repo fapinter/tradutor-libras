@@ -3,7 +3,6 @@ from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 import numpy as np
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 
 class SequenciaParaHistograma(BaseEstimator, TransformerMixin):
@@ -46,12 +45,4 @@ def criar_pipeline_kmeans():
         ("compactar", SequenciaParaHistograma()),
         ("scaler", StandardScaler()),
         ("rf", RandomForestClassifier(max_depth=None,class_weight="balanced",random_state=42)),
-    ])
-
-
-def criar_pipeline_kmeans_knn():
-    return Pipeline([
-        ("compactar", SequenciaParaHistograma()),
-        ("scaler", StandardScaler()),
-        ("knn", KNeighborsClassifier(weights="distance")),
     ])

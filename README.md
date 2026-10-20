@@ -120,6 +120,8 @@ Reconhecimento em novos vídeos  (live_testing.py)
 **Modelos:**
 
 | Modelo | Entrada |
-|---|---|---|
-| LSTM | Sequências `(N, 20, 126)` |
-| KNN + K-Means | Sequências compactadas |
+|---|---|
+| LSTM | Sequências Contínuas `(N, 20/15, 126)` |
+| TCN | Sequências Contínuas `(N, 20/15, 126)` |
+| Random Forest K-Means | Sequências representadas em um único vetor (2520) |
+| XGBoosting | Sequências representadas em um único vetor (2520) |

@@ -1,7 +1,8 @@
 from xgboost import XGBClassifier
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
-
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
 
 class SequenciaParaVetor(BaseEstimator, TransformerMixin):
     """
@@ -31,4 +32,11 @@ def criar_pipeline_xgboost():
             random_state=42,
             n_jobs=1,
         )),
+    ])
+
+def criar_pipeline_rf():
+    return Pipeline([
+        ("flatten", SequenciaParaVetor()),
+        ("scaler", StandardScaler()),
+        ("rf", RandomForestClassifier(max_depth=None,class_weight="balanced",random_state=42)),
     ])

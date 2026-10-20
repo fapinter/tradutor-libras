@@ -9,11 +9,14 @@ Métricas de Avaliação:
 - F1-Score Macro (F1-Macro)
 """
 
+# Biblotecas externas utilizadas
 import pickle
-import sys
 import matplotlib.pyplot as plt
 import numpy as np
-import tensorflow as tf
+
+from sklearn.model_selection import StratifiedGroupKFold, GridSearchCV
+from sklearn.model_selection import ParameterGrid
+from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     accuracy_score,
@@ -21,20 +24,37 @@ from sklearn.metrics import (
     confusion_matrix,
     f1_score,
 )
-from sklearn.model_selection import StratifiedGroupKFold, GridSearchCV
-from sklearn.model_selection import ParameterGrid
-from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.callbacks import EarlyStopping, Callback
-import gc
 from scikeras.wrappers import KerasClassifier
+import tensorflow as tf
+from tensorflow.keras.callbacks import EarlyStopping, Callback
+
+import sys
+import gc
+import joblib
+import time
+from tqdm.auto import tqdm
+
+# Imports do próprio projeto
 from feature_extraction import import_from_csv
 from landmark_augmentation import gerar_amostras_aumentadas
+
+from utils.tqdm import tqdm_joblib
+from utils.utils import _salvar_log_treino
+from utils.kmeans import criar_pipeline_kmeans
+from utils.xgboost import (
+    criar_pipeline_xgboost,
+    criar_pipeline_rf
+)
+from utils.lstm_tcn import(
+    create_lstm_model,
+    create_tcn_model
+)
 from utils.constants import (
     ENCODER_PATH,
     MATRIZ_PATH,
     N_AUMENTOS,
     PARAM_GRID_KMEANS,
-    PARAM_GRID_KMEANS_KNN,
+    PARAM_GRID_RF,
     PARAM_GRID_LSTM,
     PARAM_GRID_TCN,
     PARAM_GRID_XGBOOST,
@@ -47,20 +67,6 @@ from utils.constants import (
     DATASET_TESTE_MINDS_CSV,
     LOSS_PATH
 )
-import joblib
-import time
-from tqdm.auto import tqdm
-from utils.tqdm import tqdm_joblib
-from utils.utils import _salvar_log_treino
-from utils.kmeans import (
-    criar_pipeline_kmeans,
-    criar_pipeline_kmeans_knn
-)
-from utils.xgboost import criar_pipeline_xgboost
-from utils.lstm_tcn import(
-    create_lstm_model,
-    create_tcn_model
-)
 
 class MemoryCleanupCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
@@ -68,7 +74,7 @@ class MemoryCleanupCallback(Callback):
             gc.collect()
 
     def on_train_end(self, logs=None):
-        tf.keras.backend.clear_session()
+        tf.contrib.keras.backend.clear_session()
         gc.collect()
 
 
@@ -273,14 +279,12 @@ if __name__ == "__main__":
         # Modelo, Hiperparametros, Path binário, Usar Augmentation
         #('lstm:minds_aug', PARAM_GRID_LSTM, True),
         #('lstm:minds', PARAM_GRID_LSTM,  False),
-        ('tcn:aug_15', PARAM_GRID_TCN,  True),
-        ('tcn:15', PARAM_GRID_TCN,  False),
+        #('tcn:aug_15', PARAM_GRID_TCN,  True),
+        #('tcn:15', PARAM_GRID_TCN,  False),
         #('xgboost:minds_aug', PARAM_GRID_XGBOOST, True),
         #('xgboost:minds', PARAM_GRID_XGBOOST, False),
-        #('kmeans:minds_aug', PARAM_GRID_KMEANS,  True),
-        #('kmeans:minds', PARAM_GRID_KMEANS,  False),
-        #('kmeans_knn:minds_aug', PARAM_GRID_KMEANS_KNN,  True),
-        #('kmeans_knn:minds', PARAM_GRID_KMEANS_KNN,  False),
+        ('rf:15_aug', PARAM_GRID_RF,  True),
+        ('rf:15', PARAM_GRID_RF,  False),
     ]
     has_network = False
     has_classifier = False
@@ -369,8 +373,8 @@ if __name__ == "__main__":
                 )
             case "kmeans":
                 model = criar_pipeline_kmeans()
-            case "kmeans_knn":
-                model = criar_pipeline_kmeans_knn()
+            case "rf":
+                model = criar_pipeline_rf()
             case "xgboost":
                 model = criar_pipeline_xgboost()    
             case "tcn":

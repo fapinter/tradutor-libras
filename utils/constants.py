@@ -66,15 +66,15 @@ PARAM_GRID_LSTM = {
 # Hiperparametros Grid Search K-Means + Random Forest
 PARAM_GRID_KMEANS = {
     "compactar__n_clusters": [30, 50, 70],
-    "rf__n_estimators": [200, 300],
-    "rf__max_depth": [20, 30, None]
+    "rf__n_estimators": [200, 300, 400],
+    "rf__max_depth": [20, 30, None],
 }
 
-# Hiperparametros Grid Search K-Means + KNN
-PARAM_GRID_KMEANS_KNN = {
-    "compactar__n_clusters": [30, 50, 70],
-    "knn__n_neighbors": [3, 5, 7],
+PARAM_GRID_RF = {
+    "rf__n_estimators": [200, 300, 400],
+    "rf__max_depth": [20, 30, None],
 }
+
 
 PARAM_GRID_TCN = {
     "model__filters": [32, 64],
