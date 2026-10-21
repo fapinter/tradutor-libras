@@ -24,7 +24,7 @@ from utils.constants import (
     YOLO_MODELO_BASE,
 )
 
-YOLO_RUNS_DIR = "runs/pose"
+YOLO_RUNS_DIR = "runs\\pose"
 YOLO_RUN_NAME = "yolo_hand_pose"
 
 
@@ -49,7 +49,7 @@ def treinar_yolo(
     batch=16,
     patience=20,
     workers=8,
-    resume=False
+    resume=True
 ):
     """
     Treina o YOLO-Pose a partir de YOLO_MODELO_BASE e copia o melhor modelo para YOLO_HAND_MODEL_PATH.
@@ -107,5 +107,5 @@ if __name__ == "__main__":
         batch=16,
         patience=20,
         workers=8,
-        resume=False
+        resume=True
     )

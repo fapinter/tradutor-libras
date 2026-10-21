@@ -219,3 +219,6 @@ __marimo__/
 
 dataset/videos/*
 dataset/frames/*
+weights/
+runs/*
+yolo26n-pose.pt
