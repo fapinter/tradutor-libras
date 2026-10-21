@@ -27,6 +27,15 @@ DEFAULT_STEP = 5
 
 LANDMARKER_PATH = "utils/hand_landmarker.task"
 
+# Constantes do recorte das mãos a partir do MediaPipe Pose (test_crop.py)
+POSE_LANDMARKER_PATH = "utils/pose_landmarker_full.task"
+# Lado do recorte quadrado de cada mão, em larguras de ombro
+CROP_ESCALA_OMBROS = 2.0
+# Distância máxima entre o pulso detectado e o pulso do Pose, em larguras de ombro
+DIST_MAX_PULSO_POSE = 0.6
+# Distância média entre landmarks abaixo da qual duas detecções são a mesma mão, em larguras de ombro
+DIST_MESMA_MAO_CROP = 0.1
+
 # Constantes do YOLO (detecção de landmarks das mãos)
 # Modelo YOLO-Pose treinado no dataset hand-keypoints da Ultralytics
 # (21 keypoints na mesma ordem do MediaPipe)
