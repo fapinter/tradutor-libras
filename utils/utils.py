@@ -2,7 +2,7 @@ import csv
 import os
 from datetime import datetime
 
-from utils.constants import RESULTADOS_TREINO_CSV, ZEROS_MAO
+from utils.constants import BEST_DIR, BEST_PATH, RESULTADOS_TREINO_CSV, ZEROS_MAO
 
 
 def normalizar_mao(hand_landmarks):
@@ -84,3 +84,47 @@ def _salvar_log_treino(
             parametros
         ])
     print(f"[LOG] Resultado salvo em '{log_path}'")
+
+
+def ler_melhores_metricas(nome_modelo):
+    """
+    Lê as métricas do melhor treino do modelo em best/<nome_modelo>.txt.
+    Retorna (f1_macro, acuracia) em %, ou None se o modelo ainda não tiver um melhor treino salvo.
+    """
+    best_path = BEST_PATH % nome_modelo
+    if not os.path.exists(best_path):
+        return None
+    metricas = {}
+    with open(best_path, encoding='utf-8') as f:
+        for linha in f:
+            if ':' in linha:
+                chave, valor = linha.split(':', 1)
+                metricas[chave.strip()] = float(valor)
+    return metricas['f1-macro'], metricas['acuracia']
+
+
+def salvar_melhores_metricas(nome_modelo, f1_macro, acuracia):
+    """Grava as métricas (em %) do novo melhor treino do modelo em best/<nome_modelo>.txt."""
+    os.makedirs(BEST_DIR, exist_ok=True)
+    best_path = BEST_PATH % nome_modelo
+    with open(best_path, 'w', encoding='utf-8') as f:
+        f.write(f"f1-macro:{f1_macro:.2f}\n")
+        f.write(f"acuracia:{acuracia:.2f}")
+    print(f"[BEST] Métricas salvas em '{best_path}'")
+
+
+def eh_melhor_treino(nome_modelo, f1_macro, acuracia):
+    """
+    Compara as métricas (em %) do treino atual com as do melhor treino salvo do modelo.
+    O treino atual é melhor se tiver F1-Macro maior ou, em caso de empate, acurácia maior.
+    Sem melhor treino salvo, o treino atual é sempre o melhor.
+    """
+    melhor = ler_melhores_metricas(nome_modelo)
+    if melhor is None:
+        print(f"[BEST] Nenhum treino anterior de {nome_modelo} em '{BEST_DIR}/'")
+        return True
+    f1_melhor, acc_melhor = melhor
+    atual = (round(f1_macro, 2), round(acuracia, 2))
+    print(f"[BEST] {nome_modelo} | atual: F1-Macro {atual[0]:.2f}% e Acurácia {atual[1]:.2f}% "
+          f"| melhor: F1-Macro {f1_melhor:.2f}% e Acurácia {acc_melhor:.2f}%")
+    return atual > (f1_melhor, acc_melhor)

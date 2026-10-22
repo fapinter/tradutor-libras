@@ -39,7 +39,11 @@ from feature_extraction import import_from_csv
 from landmark_augmentation import gerar_amostras_aumentadas
 
 from utils.tqdm import tqdm_joblib
-from utils.utils import _salvar_log_treino
+from utils.utils import (
+    _salvar_log_treino,
+    eh_melhor_treino,
+    salvar_melhores_metricas
+)
 from utils.kmeans import criar_pipeline_kmeans
 from utils.xgboost import (
     criar_pipeline_xgboost,
@@ -173,7 +177,12 @@ def avaliar_modelo_teste(
 ):
     """
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
-    e gera a Matriz de Confusão da predição do modelo
+    e gera a Matriz de Confusão da predição do modelo.
+
+    Os arquivos em outputs/ só são sobrescritos se o treino superar o melhor treino salvo
+    em best/<model_name>.txt (ver eh_melhor_treino). O log em logs/ é gravado sempre.
+
+    Retorna se o treino é o novo melhor, o F1-Macro e a acurácia (em %).
     """
     matriz_path = MATRIZ_PATH % model_name
     results_path = RESULTS_PATH % model_name
@@ -207,6 +216,13 @@ def avaliar_modelo_teste(
         n_amostras_treino, augmentation, n_aumentos, 
         str(best_params.items()), minutos_treino, epoca_parada
     )
+
+    # Mantém os resultados do melhor treino já salvo caso o atual não o supere
+    f1_pct, acc_pct = f1_mac * 100, acc * 100
+    if not eh_melhor_treino(model_name, f1_pct, acc_pct):
+        print(f"[BEST] Treino não superou o melhor de {model_name}: modelo e outputs mantidos")
+        return False, f1_pct, acc_pct
+
     # Salva resultados em outputs/
     with open(results_path, 'w') as file_:
         file_.write(f"Total de Amostras de Teste: {len(y_test)}\n")
@@ -271,6 +287,8 @@ def avaliar_modelo_teste(
 
     except Exception as e:
         print(f"[AVISO] Não foi possível salvar gráfico da acurácia da rede: {e}")
+
+    return True, f1_pct, acc_pct
 
 
 if __name__ == "__main__":
@@ -411,7 +429,7 @@ if __name__ == "__main__":
         end_time = time.perf_counter() - start_time
         # Realiza o teste e grava métricas em arquivos
         model_name = model_name.replace(':', '_')
-        avaliar_modelo_teste(
+        melhor_treino, f1_pct, acc_pct = avaliar_modelo_teste(
             model_name=model_name,
             model=best_model,
             best_params=best_params,
@@ -424,12 +442,16 @@ if __name__ == "__main__":
             usa_predict_proba=eh_modelo_keras,
             time=end_time
         )
-        if eh_modelo_keras:
-            best_model.model_.save(KERAS_PATH % model_name)
-            print(f'[OK] Modelo {model_name} salvo em "{KERAS_PATH % model_name}"')
-        else:
-            joblib.dump(best_model, PICKLE_PATH % model_name, compress=3)
-            print(f'[OK] Modelo {model_name} salvo em "{PICKLE_PATH % model_name}"')
+        # Substitui o modelo em models/ apenas quando o treino supera o melhor já salvo
+        if melhor_treino:
+            if eh_modelo_keras:
+                best_model.model_.save(KERAS_PATH % model_name)
+                print(f'[OK] Modelo {model_name} salvo em "{KERAS_PATH % model_name}"')
+            else:
+                joblib.dump(best_model, PICKLE_PATH % model_name, compress=3)
+                print(f'[OK] Modelo {model_name} salvo em "{PICKLE_PATH % model_name}"')
+            # Métricas gravadas após o modelo, para best/ não apontar para um modelo que não foi salvo
+            salvar_melhores_metricas(model_name, f1_pct, acc_pct)
 
 
 

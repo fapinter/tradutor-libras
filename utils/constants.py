@@ -154,6 +154,7 @@ DATASET_TESTE_15_CSV = "dataset/teste_15.csv"
 LOGS_DIR = "logs"
 MODELS_DIR = "models"
 OUTPUTS_DIR = "outputs"
+BEST_DIR = "best"
 
 RESULTADOS_TREINO_CSV = "logs/resultados_treino.csv"
 GRID_SEARCH_RESULTS_CSV = "outputs/grid_search_results.csv"
@@ -162,6 +163,9 @@ RELATORIO_AVALIACAO_TESTE = "outputs/relatorio_avaliacao_teste.txt"
 MATRIZ_PATH = "outputs/matriz_%s.png"
 RESULTS_PATH = "outputs/results_%s.txt"
 LOSS_PATH = "outputs/acc_%s.png"
+
+# Métricas do melhor treino de cada modelo (f1-macro e acurácia, em %)
+BEST_PATH = "best/%s.txt"
 
 KERAS_PATH = "models/%s.keras"
 PICKLE_PATH = "models/%s.pkl"
