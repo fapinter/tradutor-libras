@@ -1,3 +1,4 @@
+
 import multiprocessing
 import os
 from functools import partial
@@ -570,11 +571,11 @@ def extrair_datasets(mode, extrator="mediapipe", preprocess=False):
     dataset/{treino|teste}_<configuração>.csv e logs/{treino|teste}_<configuração>.txt.
     """
     nome = nome_configuracao(mode, extrator, preprocess)
-    for split, frames_dir in (("treino", FRAMES_TREINO_DIR), ("teste", FRAMES_TESTE_DIR)):
+    for split, frames_dir in (("treino", "dataset/frames_minds/treinamento"), ("teste", "dataset/frames_minds/teste")):
         print(f'Gerando dataset de {split.upper()} ({nome})')
         extract_features_from_directory(
             dataset_root_dir=frames_dir,
-            output_path=f"dataset/{split}_{nome}.csv",
+            output_path=f"dataset/{split}_minds_{nome}.csv",
             mode=mode,
             extrator=extrator,
             sequence_length=SEQUENCE_LENGTH,
