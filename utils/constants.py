@@ -49,6 +49,17 @@ YOLO_CONFIANCA_KPT = 0.5
 # Distância média máxima (coordenadas normalizadas) para considerar duas detecções a mesma mão
 DIST_MAX_MESMA_MAO = 0.15
 
+# Constantes do YOLO (pose das pessoas, usada para localizar as mãos no test_crop.py)
+# Os pesos pré-treinados já são treinados no COCO-Pose (17 keypoints do corpo), sem necessidade de treino
+YOLO_PERSON_MODEL_PATH = YOLO_MODELO_BASE
+# Índices dos keypoints do COCO-Pose (lado da pessoa, como no MediaPipe Pose)
+YOLO_POSE_OMBROS = (6, 5)  # ombro direito, ombro esquerdo
+YOLO_POSE_COTOVELOS = {"Right": 8, "Left": 7}
+YOLO_POSE_PULSOS = {"Right": 10, "Left": 9}
+# O COCO-Pose não tem pontos dos dedos: a ponta da mão é estimada prolongando o antebraço
+# (cotovelo -> pulso) a partir do pulso, nesta fração do comprimento do antebraço
+YOLO_POSE_COMPRIMENTO_MAO = 0.75
+
 # Parâmetros de Data Augmentation
 AUG_NOISE_INTENSITY = 0.005
 

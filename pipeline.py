@@ -277,14 +277,14 @@ if __name__ == "__main__":
 
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation
-        #('lstm:minds_aug', PARAM_GRID_LSTM, True),
-        #('lstm:minds', PARAM_GRID_LSTM,  False),
+        ('lstm:crop_aug', PARAM_GRID_LSTM, True),
+        ('lstm:crop', PARAM_GRID_LSTM,  False),
         #('tcn:aug_15', PARAM_GRID_TCN,  True),
         #('tcn:15', PARAM_GRID_TCN,  False),
         #('xgboost:minds_aug', PARAM_GRID_XGBOOST, True),
         #('xgboost:minds', PARAM_GRID_XGBOOST, False),
-        ('rf:15_aug', PARAM_GRID_RF,  True),
-        ('rf:15', PARAM_GRID_RF,  False),
+        #('rf:crop_15_aug', PARAM_GRID_RF,  True),
+        #('rf:crop_15', PARAM_GRID_RF,  False),
     ]
     has_network = False
     has_classifier = False
