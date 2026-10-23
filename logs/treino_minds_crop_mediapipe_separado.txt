@@ -1,0 +1,88 @@
+Modo: crop separado (escala do recorte: 2.0 x largura dos ombros)
+Extrator: mediapipe (mãos: utils/hand_landmarker.task | pose: utils/pose_landmarker_full.task)
+Pré-processamento: sim
+
+Frames duplicados em acontecer: 217/671
+Frames de padding em acontecer: 0/671
+Vídeos com padding em acontecer: 0/28
+  -> 70 sequência(s) para 'acontecer'
+Frames duplicados em aluno: 256/882
+Frames de padding em aluno: 0/882
+Vídeos com padding em aluno: 0/28
+  -> 111 sequência(s) para 'aluno'
+Frames duplicados em amarelo: 267/826
+Frames de padding em amarelo: 0/826
+Vídeos com padding em amarelo: 0/28
+  -> 97 sequência(s) para 'amarelo'
+Frames duplicados em america: 195/803
+Frames de padding em america: 0/803
+Vídeos com padding em america: 0/28
+  -> 94 sequência(s) para 'america'
+Frames duplicados em aproveitar: 227/623
+Frames de padding em aproveitar: 0/623
+Vídeos com padding em aproveitar: 0/28
+  -> 56 sequência(s) para 'aproveitar'
+Frames duplicados em bala: 238/775
+Frames de padding em bala: 0/775
+Vídeos com padding em bala: 0/28
+  -> 88 sequência(s) para 'bala'
+Frames duplicados em banco: 222/778
+Frames de padding em banco: 0/778
+Vídeos com padding em banco: 0/28
+  -> 90 sequência(s) para 'banco'
+Frames duplicados em banheiro: 229/791
+Frames de padding em banheiro: 0/791
+Vídeos com padding em banheiro: 0/28
+  -> 90 sequência(s) para 'banheiro'
+Frames duplicados em barulho: 243/842
+Frames de padding em barulho: 0/842
+Vídeos com padding em barulho: 0/28
+  -> 100 sequência(s) para 'barulho'
+Frames duplicados em conhecer: 229/763
+Frames de padding em conhecer: 0/763
+Vídeos com padding em conhecer: 0/28
+  -> 84 sequência(s) para 'conhecer'
+Frames duplicados em espelho: 251/805
+Frames de padding em espelho: 0/805
+Vídeos com padding em espelho: 0/28
+  -> 92 sequência(s) para 'espelho'
+Frames duplicados em esquina: 208/807
+Frames de padding em esquina: 0/807
+Vídeos com padding em esquina: 0/28
+  -> 94 sequência(s) para 'esquina'
+Frames duplicados em filho: 205/713
+Frames de padding em filho: 0/713
+Vídeos com padding em filho: 0/28
+  -> 75 sequência(s) para 'filho'
+Frames duplicados em maca: 208/794
+Frames de padding em maca: 0/794
+Vídeos com padding em maca: 0/28
+  -> 91 sequência(s) para 'maca'
+Frames duplicados em medo: 254/728
+Frames de padding em medo: 0/728
+Vídeos com padding em medo: 0/28
+  -> 78 sequência(s) para 'medo'
+Frames duplicados em ruim: 214/768
+Frames de padding em ruim: 0/768
+Vídeos com padding em ruim: 0/28
+  -> 85 sequência(s) para 'ruim'
+Frames duplicados em sapo: 228/849
+Frames de padding em sapo: 0/849
+Vídeos com padding em sapo: 0/28
+  -> 102 sequência(s) para 'sapo'
+Frames duplicados em vacina: 233/742
+Frames de padding em vacina: 0/742
+Vídeos com padding em vacina: 0/28
+  -> 81 sequência(s) para 'vacina'
+Frames duplicados em vontade: 233/822
+Frames de padding em vontade: 0/822
+Vídeos com padding em vontade: 0/28
+  -> 99 sequência(s) para 'vontade'
+Shape das features: (1677, 15, 127)
+
+Extração concluída! Total de 1677 amostras coletadas
+
+Detecção de Frames: 10425/14782 = 70.52496279258558%
+Frames sem pessoa detectada pelo Pose: 17/14782 = 0.11500473548910838%
+Mãos detectadas entre as mãos dentro da imagem: 16883/23067 = 73.1911388563749%
+Número de Frames com Padding: 0/14782 = 0.0%

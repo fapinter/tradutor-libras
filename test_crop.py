@@ -50,7 +50,7 @@ from utils.constants_cv import (
     VisionRunningMode,
 )
 
-MODOS = ("separado", "unico")
+MODOS = ("separado",)
 EXTRATORES = ("mediapipe", "yolo")
 
 # Landmarks do Pose de cada mão da pessoa: pulso, mínimo, indicador, polegar.
@@ -59,17 +59,14 @@ POSE_MAOS = {"Right": (16, 18, 20, 22), "Left": (15, 17, 19, 21)}
 POSE_OMBROS = (11, 12)
 
 # Processos paralelos da extração (deixa 2 núcleos livres para o sistema)
-NUM_PROCESSOS = max(1, (os.cpu_count() or 1) - 2)
+NUM_PROCESSOS = max(1, (os.cpu_count() or 1))
 # Com o YOLO cada processo carrega os modelos na GPU, então são usados menos processos
 NUM_PROCESSOS_YOLO = min(4, NUM_PROCESSOS)
 
 
-def nome_configuracao(mode, extrator="mediapipe", preprocess=False):
+def nome_configuracao(mode, extrator="mediapipe"):
     """Sufixo usado nos nomes do CSV e do log, para cada configuração não sobrescrever as outras."""
-    nome = f"crop_{mode}" if extrator == "mediapipe" else f"crop_{extrator}_{mode}"
-    if preprocess:
-        nome += "_preprocess"
-    return nome
+    return f"crop_{extrator}_{mode}"
 
 
 def detectar_pose(pose_landmarker, img_rgb):
@@ -570,7 +567,7 @@ def extrair_datasets(mode, extrator="mediapipe", preprocess=False):
     Extrai os datasets de treino e teste com o modo de recorte e o extrator informados, salvando em
     dataset/{treino|teste}_<configuração>.csv e logs/{treino|teste}_<configuração>.txt.
     """
-    nome = nome_configuracao(mode, extrator, preprocess)
+    nome = nome_configuracao(mode, extrator)
     for split, frames_dir in (("treino", "dataset/frames_minds/treinamento"), ("teste", "dataset/frames_minds/teste")):
         print(f'Gerando dataset de {split.upper()} ({nome})')
         extract_features_from_directory(
@@ -586,4 +583,4 @@ def extrair_datasets(mode, extrator="mediapipe", preprocess=False):
 
 if __name__ == "__main__":
     for mode in MODOS:
-        extrair_datasets(mode, extrator="yolo", preprocess=True)
+        extrair_datasets(mode, extrator="mediapipe", preprocess=True)
