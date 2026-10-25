@@ -1,7 +1,7 @@
 Total de Amostras de Teste: 93
 Acurácia no Teste: 51.61%
 F1-Score Macro:             45.37%
-Tempo total de Treino: 288.1038 minutos | 4.8017 horasHiperparametros do xgboost_minds_aug: dict_items([('xgb__learning_rate', 0.05), ('xgb__max_depth', 6), ('xgb__n_estimators', 400), ('xgb__subsample', 0.8)])
+Tempo total de Treino: 288.1038 minutos | 4.8017 horasHiperparametros do xgboost_aug_15: dict_items([('xgb__learning_rate', 0.05), ('xgb__max_depth', 6), ('xgb__n_estimators', 400), ('xgb__subsample', 0.8)])
 Relatório de Classificação por Classe:
               precision    recall  f1-score   support
 

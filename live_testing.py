@@ -117,7 +117,6 @@ def carregar_modelo_lstm(LSTM_PATH=LSTM_PATH,
     """
     caminhos_modelo = [
         LSTM_PATH,
-        "models/lstm_sign_model.keras",
         "models/lstm_direto.h5",
         "models/lstm_csv.h5",
     ]

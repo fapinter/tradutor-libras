@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 #               - minds_{id_video}.mp4
 
 
+'''
 def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAMES_DIR):
     if not os.path.exists(pasta_videos):
         print(f"Aviso: A pasta '{pasta_videos}' nao foi encontrada.")
@@ -107,8 +108,7 @@ def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAME
                 gesture_label=gesto
             )
             
-'''
-# Coleta frames de um video especifico
+# coleta frames de um video especifico
 def extract_frames(video_path,
                    output_dir,
                    gesture_label,
@@ -145,4 +145,4 @@ def extract_frames(video_path,
 
 
 if __name__ == '__main__':
-    extrair_dataset_completo(pasta_videos=VIDEOS_DIR,pasta_destino_frames=FRAMES_DIR)
+    extrair_dataset_completo(pasta_videos=VIDEOS_DIR,pasta_destino_frames="dataset/frames_minds")

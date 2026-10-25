@@ -49,9 +49,7 @@ vidos (80MB cada, ~60GB o dataset como um todo)
 ### Modelos treinados
 
 
-**`models/lstm_sign_model.keras`** — Rede LSTM (Keras/TensorFlow).
-
-**`models/lstm_sign_model_aug.keras`** — Rede LSTM (Keras/TensorFlow) com Data Augmentation no treinamento.
+**`models/<modelo>_<configuração>.(keras|pkl)`** — Melhor modelo treinado de cada configuração: redes LSTM/TCN (Keras/TensorFlow) em `.keras` e K-Means, Random Forest e XGBoost (scikit-learn) em `.pkl`. O sufixo `aug` indica Data Augmentation no treinamento.
 
 **`models/label_encoder.pkl`** — `LabelEncoder` do scikit-learn que mapeia nomes de gestos para índices inteiros.
 
@@ -67,6 +65,8 @@ geradas, quantidade de frames duplicado, quantidade de vídeos com padding e qua
 
 **`outputs/`** — Diretório contendo os relatórios dos resultados do treinamento dos modelos, como matrizes
 de confusão e results_{model} mostrando as métricas do modelo treinado.
+
+**`best/<modelo>.txt`** — Métricas do melhor treino de cada modelo (`f1-macro` na primeira linha e `acuracia` na segunda, em %). Ao fim de cada treino, o `pipeline.py` só substitui o modelo em `models/` e os arquivos em `outputs/` se o novo treino tiver F1-Macro maior (acurácia como desempate).
 
 
 ---

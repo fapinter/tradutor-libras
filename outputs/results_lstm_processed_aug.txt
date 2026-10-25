@@ -1,7 +1,7 @@
 Total de Amostras de Teste: 80
 Acurácia no Teste: 50.00%
 F1-Score Macro:             45.24%
-Hiperparametros do lstm_aug: dict_items([('batch_size', 32), ('epochs', 100), ('model__dense_units', 64), ('model__dropout_rate', 0.4), ('model__learning_rate', 0.0005), ('model__lstm_units_1', 128), ('model__lstm_units_2', 32)])
+Hiperparametros do lstm_processed_aug: dict_items([('batch_size', 32), ('epochs', 100), ('model__dense_units', 64), ('model__dropout_rate', 0.4), ('model__learning_rate', 0.0005), ('model__lstm_units_1', 128), ('model__lstm_units_2', 32)])
 Relatório de Classificação por Classe:
               precision    recall  f1-score   support
 
