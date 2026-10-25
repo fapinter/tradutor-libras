@@ -151,6 +151,9 @@ DATASET_TESTE_MINDS_CSV = "dataset/teste_minds_30.csv"
 DATASET_TREINO_15_CSV = "dataset/treino_15.csv"
 DATASET_TESTE_15_CSV = "dataset/teste_15.csv"
 
+DATASET_TREINO_MINDS_CROP_CSV = "dataset/treino_minds_crop_mediapipe_separado.csv"
+DATASET_TESTE_MINDS_CROP_CSV = "dataset/teste_minds_crop_mediapipe_separado.csv"
+
 LOGS_DIR = "logs"
 MODELS_DIR = "models"
 OUTPUTS_DIR = "outputs"

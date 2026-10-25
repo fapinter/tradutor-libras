@@ -69,6 +69,8 @@ from utils.constants import (
     DATASET_TESTE_15_CSV,
     DATASET_TREINO_MINDS_CSV,
     DATASET_TESTE_MINDS_CSV,
+    DATASET_TREINO_MINDS_CROP_CSV,
+    DATASET_TESTE_MINDS_CROP_CSV,
     LOSS_PATH
 )
 
@@ -78,7 +80,7 @@ class MemoryCleanupCallback(Callback):
             gc.collect()
 
     def on_train_end(self, logs=None):
-        tf.contrib.keras.backend.clear_session()
+        tf.keras.backend.clear_session()
         gc.collect()
 
 
@@ -148,7 +150,7 @@ def applyGridSearch(
     )
 
     if usa_validation_data:
-        n_jobs = 2
+        n_jobs = -1
     else:
         n_jobs = -1
 
@@ -295,8 +297,13 @@ if __name__ == "__main__":
 
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation
-        ('lstm:crop_aug', PARAM_GRID_LSTM, True),
-        ('lstm:crop', PARAM_GRID_LSTM,  False),
+        ('lstm:crop_minds', PARAM_GRID_LSTM,  False),
+        ('lstm:crop_minds', PARAM_GRID_LSTM,  False),
+        ('lstm:crop_minds', PARAM_GRID_LSTM,  False),
+        #('lstm:crop_minds_aug', PARAM_GRID_LSTM, True),
+        #('lstm:crop_minds_aug', PARAM_GRID_LSTM, True),
+        #('lstm:crop_minds_aug', PARAM_GRID_LSTM, True),
+
         #('tcn:aug_15', PARAM_GRID_TCN,  True),
         #('tcn:15', PARAM_GRID_TCN,  False),
         #('xgboost:minds_aug', PARAM_GRID_XGBOOST, True),
@@ -322,8 +329,8 @@ if __name__ == "__main__":
     # Dataset é definido aqui, não possui opção de mudar
     
     # Coleta dos dados no dtype=np.float32
-    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_15_CSV)
-    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_15_CSV)
+    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_MINDS_CROP_CSV)
+    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_MINDS_CROP_CSV)
 
     # Separação dos dados de treino e validação
     X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
@@ -452,8 +459,6 @@ if __name__ == "__main__":
                 print(f'[OK] Modelo {model_name} salvo em "{PICKLE_PATH % model_name}"')
             # Métricas gravadas após o modelo, para best/ não apontar para um modelo que não foi salvo
             salvar_melhores_metricas(model_name, f1_pct, acc_pct)
-
-
 
     # Armazena o LabelEncoder em disco
     with open(ENCODER_PATH, 'wb') as f:

@@ -1,0 +1,31 @@
+Total de Amostras de Teste: 720
+Acurácia no Teste: 93.19%
+F1-Score Macro:             92.97%
+Tempo total de Treino: 34.6529 minutos | 0.5775 horas
+Época parada: 37Hiperparametros do lstm_crop_minds: dict_items([('batch_size', 16), ('epochs', 100), ('model__dense_units', 64), ('model__dropout_rate', 0.4), ('model__learning_rate', 0.0005), ('model__lstm_units_1', 64), ('model__lstm_units_2', 64)])
+Relatório de Classificação por Classe:
+              precision    recall  f1-score   support
+
+   acontecer       1.00      1.00      1.00        30
+       aluno       0.96      0.96      0.96        45
+     amarelo       0.97      0.90      0.93        39
+     america       0.93      1.00      0.97        42
+  aproveitar       0.88      0.81      0.84        26
+        bala       0.95      0.92      0.93        38
+       banco       1.00      0.94      0.97        35
+    banheiro       1.00      0.93      0.96        43
+     barulho       0.93      0.98      0.95        41
+    conhecer       1.00      0.97      0.99        36
+     espelho       0.95      1.00      0.98        42
+     esquina       1.00      0.95      0.98        43
+       filho       0.78      0.82      0.80        34
+        maca       0.73      0.95      0.82        42
+        medo       0.93      0.71      0.81        35
+        ruim       0.97      1.00      0.99        33
+        sapo       0.95      1.00      0.98        42
+      vacina       0.91      0.83      0.87        36
+     vontade       0.95      0.95      0.95        38
+
+    accuracy                           0.93       720
+   macro avg       0.94      0.93      0.93       720
+weighted avg       0.94      0.93      0.93       720
