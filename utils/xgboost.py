@@ -22,21 +22,27 @@ class SequenciaParaVetor(BaseEstimator, TransformerMixin):
         return X.reshape(X.shape[0], -1)
 
 
-def criar_pipeline_xgboost():
+def criar_pipeline_xgboost(random_state=None):
     return Pipeline([
         ("flatten", SequenciaParaVetor()),
         ("xgb", XGBClassifier(
             objective="multi:softprob",
             eval_metric="mlogloss",
             tree_method="hist",
-            random_state=42,
+            colsample_bytree=0.5,
+            max_bin=64,
+            random_state=random_state,
             n_jobs=1,
         )),
     ])
 
-def criar_pipeline_rf():
+def criar_pipeline_rf(random_state=None):
     return Pipeline([
         ("flatten", SequenciaParaVetor()),
         ("scaler", StandardScaler()),
-        ("rf", RandomForestClassifier(max_depth=None,class_weight="balanced",random_state=42)),
+        ("rf", RandomForestClassifier(
+            max_depth=None, 
+            class_weight="balanced", 
+            random_state=random_state
+        )),
     ])

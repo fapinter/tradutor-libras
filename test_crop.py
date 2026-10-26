@@ -64,11 +64,6 @@ NUM_PROCESSOS = max(1, (os.cpu_count() or 1))
 NUM_PROCESSOS_YOLO = min(4, NUM_PROCESSOS)
 
 
-def nome_configuracao(mode, extrator="mediapipe"):
-    """Sufixo usado nos nomes do CSV e do log, para cada configuração não sobrescrever as outras."""
-    return f"crop_{extrator}_{mode}"
-
-
 def detectar_pose(pose_landmarker, img_rgb):
     """
     Retorna os pontos de cada mão estimados pelo Pose, em pixels ({"Right"|"Left": array (4, 2)}),
@@ -567,12 +562,11 @@ def extrair_datasets(mode, extrator="mediapipe", preprocess=False):
     Extrai os datasets de treino e teste com o modo de recorte e o extrator informados, salvando em
     dataset/{treino|teste}_<configuração>.csv e logs/{treino|teste}_<configuração>.txt.
     """
-    nome = nome_configuracao(mode, extrator)
-    for split, frames_dir in (("treino", "dataset/frames_minds/treinamento"), ("teste", "dataset/frames_minds/teste")):
-        print(f'Gerando dataset de {split.upper()} ({nome})')
+    for split, frames_dir in (("treino", "dataset/frames/treinamento"), ("teste", "dataset/frames/teste")):
+        print(f'Gerando dataset de {split.upper()} (crop)')
         extract_features_from_directory(
             dataset_root_dir=frames_dir,
-            output_path=f"dataset/{split}_minds_{nome}.csv",
+            output_path=f"dataset/{split}_crop.csv",
             mode=mode,
             extrator=extrator,
             sequence_length=SEQUENCE_LENGTH,

@@ -15,7 +15,7 @@ from utils.constants import (
     NUM_HANDS,
     SEQUENCE_LENGTH,
     ZEROS_FRAME,
-    LOGS_DIR
+    LOGS_DIR,
 )
 from utils.constants_cv import (
     BaseOptions,
@@ -319,59 +319,23 @@ def import_from_csv(filepath: str):
 
 
 if __name__ == "__main__":
-    DATASET_TREINO_PREPROCESS = "dataset/treino_preprocessed.csv"
-    DATASET_TESTE_PREPROCESS = "dataset/teste_preprocessed.csv"
+    DATASET_TREINO_ = "dataset/treino_final.csv"
+    DATASET_TESTE_ = "dataset/teste_final.csv"
 
-
-    #print('Gerando dataset de TREINO Preprocessados')
-    #extract_features_from_directory(
-    #    dataset_root_dir=FRAMES_TREINO_DIR,
-    #    sequence_length=SEQUENCE_LENGTH,
-    #    step=DEFAULT_STEP,
-    #    output_path=DATASET_TREINO_PREPROCESS,
-    #    preprocess=True
-    #)
-#
-#
-    #print('Gerando dataset de TESTE Preprocessados')
-    #extract_features_from_directory(
-    #    dataset_root_dir=FRAMES_TESTE_DIR,
-    #    sequence_length=SEQUENCE_LENGTH,
-    #    step=DEFAULT_STEP,
-    #    output_path=DATASET_TESTE_PREPROCESS,
-    #    preprocess=True
-    #)
-    #print('Gerando dataset de TREINO')
-    #extract_features_from_directory(
-    #    dataset_root_dir=FRAMES_TREINO_DIR,
-    #    sequence_length=SEQUENCE_LENGTH,
-    #    step=DEFAULT_STEP,
-    #    output_path=DATASET_TREINO_CSV,
-    #)
-#
-#
-    #print('Gerando dataset de TESTE')
-    #extract_features_from_directory(
-    #    dataset_root_dir=FRAMES_TESTE_DIR,
-    #    sequence_length=SEQUENCE_LENGTH,
-    #    step=DEFAULT_STEP,
-    #    output_path=DATASET_TESTE_CSV,
-    #)
     print('Gerando dataset de TREINO')
     extract_features_from_directory(
         dataset_root_dir=FRAMES_TREINO_DIR,
         sequence_length=SEQUENCE_LENGTH,
         step=DEFAULT_STEP,
-        output_path='dataset/treino_15.csv',
+        output_path=DATASET_TREINO_CSV,
         preprocess=True
     )
-
 
     print('Gerando dataset de TESTE')
     extract_features_from_directory(
         dataset_root_dir=FRAMES_TESTE_DIR,
         sequence_length=SEQUENCE_LENGTH,
         step=DEFAULT_STEP,
-        output_path='dataset/teste_15.csv',
+        output_path=DATASET_TESTE_CSV,
         preprocess=True
     )

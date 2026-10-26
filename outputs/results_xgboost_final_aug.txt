@@ -1,0 +1,31 @@
+Total de Amostras de Teste: 333
+Acurácia no Teste: 63.96%
+F1-Score Macro:             61.30%
+Tempo total de Treino: 287.3667 minutos | 4.7894 horas
+Época parada: NoneHiperparametros do xgboost_final_aug: dict_items([('xgb__learning_rate', 0.05), ('xgb__max_depth', 6), ('xgb__n_estimators', 400), ('xgb__subsample', 0.8)])
+Relatório de Classificação por Classe:
+              precision    recall  f1-score   support
+
+   acontecer       0.73      0.80      0.76        10
+       aluno       1.00      0.35      0.52        17
+     amarelo       0.55      1.00      0.71        16
+     america       0.50      1.00      0.67        18
+  aproveitar       0.75      0.69      0.72        13
+        bala       0.88      0.92      0.90        24
+       banco       0.74      0.74      0.74        19
+    banheiro       0.69      0.56      0.62        16
+     barulho       1.00      0.10      0.18        20
+    conhecer       0.62      0.36      0.45        14
+     espelho       0.72      0.72      0.72        18
+     esquina       0.69      0.50      0.58        18
+       filho       0.60      0.40      0.48        15
+        maca       0.61      0.52      0.56        21
+        medo       0.41      0.50      0.45        14
+        ruim       0.42      0.71      0.53        14
+        sapo       0.59      0.67      0.63        24
+      vacina       0.56      0.53      0.54        19
+     vontade       0.81      0.96      0.88        23
+
+    accuracy                           0.64       333
+   macro avg       0.68      0.63      0.61       333
+weighted avg       0.69      0.64      0.62       333

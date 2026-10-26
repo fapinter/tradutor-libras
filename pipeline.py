@@ -1,12 +1,10 @@
 """
-pipeline.py
-===========
 Pipeline completo de Treinamento, Otimização de Hiperparâmetros (Grid Search)
-e Validação Cruzada K-Fold Estratificada para o modelo LSTM de Tradução de Libras.
+e Validação Cruzada K-Fold Estratificada.
 
 Métricas de Avaliação:
-- Acurácia (Accuracy)
 - F1-Score Macro (F1-Macro)
+- Acurácia (Accuracy)
 """
 
 # Biblotecas externas utilizadas
@@ -56,22 +54,24 @@ from utils.lstm_tcn import(
 from utils.constants import (
     ENCODER_PATH,
     MATRIZ_PATH,
+    RESULTS_PATH,
+    KERAS_PATH,
+    PICKLE_PATH,
+    ACC_PATH,
     N_AUMENTOS,
     PARAM_GRID_KMEANS,
     PARAM_GRID_RF,
     PARAM_GRID_LSTM,
     PARAM_GRID_TCN,
     PARAM_GRID_XGBOOST,
-    RESULTS_PATH,
-    KERAS_PATH,
-    PICKLE_PATH,
+    DATASET_TREINO_CSV,
+    DATASET_TESTE_CSV,
     DATASET_TREINO_15_CSV,
     DATASET_TESTE_15_CSV,
     DATASET_TREINO_MINDS_CSV,
     DATASET_TESTE_MINDS_CSV,
     DATASET_TREINO_MINDS_CROP_CSV,
     DATASET_TESTE_MINDS_CROP_CSV,
-    LOSS_PATH
 )
 
 class MemoryCleanupCallback(Callback):
@@ -119,7 +119,8 @@ def splitTrainValidation(x_fit, y_fit, groups_fit):
 def applyGridSearch(
     model_used, params, scoring_method,
     X_fit, y_fit, groups,
-    X_val, y_val, usa_validation_data=True
+    X_val, y_val, usa_validation_data=True,
+    random_state=None
 ):
     """
     Executa GridSearchCV para um dado modelo (pipeline) e espaço de parâmetros.
@@ -146,7 +147,7 @@ def applyGridSearch(
     cv = StratifiedGroupKFold(
         n_splits=5,
         shuffle=True,
-        random_state=42
+        random_state=random_state
     )
 
     if usa_validation_data:
@@ -256,7 +257,7 @@ def avaliar_modelo_teste(
 
     try:
         if epoca_parada:
-            loss_path = LOSS_PATH % model_name
+            acc_path = ACC_PATH % model_name
             history = model.history_
             
             # Identificar chaves de acurácia compatíveis com a versão do TensorFlow
@@ -285,7 +286,7 @@ def avaliar_modelo_teste(
             plt.legend(loc='lower right', fontsize=11)
             plt.grid(True, linestyle='--', alpha=0.6)
             plt.tight_layout()
-            plt.savefig(loss_path, dpi=150, bbox_inches="tight")
+            plt.savefig(acc_path, dpi=150, bbox_inches="tight")
 
     except Exception as e:
         print(f"[AVISO] Não foi possível salvar gráfico da acurácia da rede: {e}")
@@ -296,28 +297,26 @@ def avaliar_modelo_teste(
 if __name__ == "__main__":
 
     models = [
-        # Modelo, Hiperparametros, Path binário, Usar Augmentation
-        ('lstm:crop_minds', PARAM_GRID_LSTM,  False),
-        ('lstm:crop_minds', PARAM_GRID_LSTM,  False),
-        ('lstm:crop_minds', PARAM_GRID_LSTM,  False),
-        #('lstm:crop_minds_aug', PARAM_GRID_LSTM, True),
-        #('lstm:crop_minds_aug', PARAM_GRID_LSTM, True),
-        #('lstm:crop_minds_aug', PARAM_GRID_LSTM, True),
+        # Modelo, Hiperparametros, Path binário, Usar Augmentation, Número de Execuções
+        #('lstm:final', PARAM_GRID_LSTM,  False, 3),
+        #('lstm:final_aug', PARAM_GRID_LSTM, True, 3),
+        #('tcn:final_aug', PARAM_GRID_TCN,  True, 3),
+        #('tcn:final', PARAM_GRID_TCN,  False, 3),
+        ('xgboost:final_aug', PARAM_GRID_XGBOOST, True, 4),
+        ('xgboost:final', PARAM_GRID_XGBOOST, False, 4),
+        ('rf:final_aug', PARAM_GRID_RF,  True, 4),
+        ('rf:final', PARAM_GRID_RF,  False, 4),
+        ('kmeans:final_aug', PARAM_GRID_KMEANS, True, 4),
+        ('kmeans:final', PARAM_GRID_KMEANS, False, 4),
 
-        #('tcn:aug_15', PARAM_GRID_TCN,  True),
-        #('tcn:15', PARAM_GRID_TCN,  False),
-        #('xgboost:minds_aug', PARAM_GRID_XGBOOST, True),
-        #('xgboost:minds', PARAM_GRID_XGBOOST, False),
-        #('rf:crop_15_aug', PARAM_GRID_RF,  True),
-        #('rf:crop_15', PARAM_GRID_RF,  False),
     ]
     has_network = False
     has_classifier = False
-    for model_name,_,_ in models:
+    for model_name, _, _, _ in models:
         if model_name.startswith('lstm') or model_name.startswith('tcn'):
             has_network = True
-        elif model_name.startswith('kmeans') or model_name.startswith('xgboost'):
-            has_kmeans = True
+        elif model_name.startswith('kmeans') or model_name.startswith('xgboost') or model_name.startswith('rf'):
+            has_classifier = True
 
         if has_network and has_classifier:
             print('[ERRO] Não é permitido o treinamento de Kmeans e LSTM juntos\nFaça o treinamento em execuções diferentes')
@@ -329,8 +328,8 @@ if __name__ == "__main__":
     # Dataset é definido aqui, não possui opção de mudar
     
     # Coleta dos dados no dtype=np.float32
-    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_MINDS_CROP_CSV)
-    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_MINDS_CROP_CSV)
+    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_CSV)
+    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_CSV)
 
     # Separação dos dados de treino e validação
     X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
@@ -361,7 +360,7 @@ if __name__ == "__main__":
     # pois realiza a análise de acerto das
     # classes com o mesmo peso para todas as classes
     scoring_method = "f1_macro"
-    for model_name, params, usar_augmentation in models:
+    for model_name, params, usar_augmentation, n_execucoes in models:
         # Redução do Uso de RAM
         tf.keras.backend.clear_session()
         gc.collect()
@@ -378,87 +377,94 @@ if __name__ == "__main__":
         print("Shape fit: ", x_fit.shape, y_fit.shape, group_fit.shape)
         print("dtype X fit: ", x_fit.dtype)
         model_to_create = model_name.split(':')[0]
-        match(model_to_create):
-            case "lstm":
-                # Configuração de Early Stopping para evitar
-                # a passagem por todas as 100 épocas em todos
-                # os treinamentos
-                early_stopping = EarlyStopping(
-                    monitor="val_loss",
-                    patience=10,
-                    restore_best_weights=True
-                )
-                cleanup_cb = MemoryCleanupCallback()
-                model = KerasClassifier(
-                    model=create_lstm_model,
-                    model__input_shape=input_shape,
-                    model__num_classes=num_labels,
-                    verbose=0,
-                    callbacks=[early_stopping, cleanup_cb]
-                )
-            case "kmeans":
-                model = criar_pipeline_kmeans()
-            case "rf":
-                model = criar_pipeline_rf()
-            case "xgboost":
-                model = criar_pipeline_xgboost()    
-            case "tcn":
-                early_stopping = EarlyStopping(
-                    monitor="val_loss",
-                    patience=10,
-                    restore_best_weights=True
-                )
-                cleanup_cb = MemoryCleanupCallback()
-                model = KerasClassifier(
-                    model=create_tcn_model,
-                    model__input_shape=input_shape,
-                    model__num_classes=num_labels,
-                    verbose=0,
-                    callbacks=[early_stopping, cleanup_cb]
-                )    
-            case _:
-                pass
-
         eh_modelo_keras = model_to_create in ("lstm", "tcn")
-        start_time = time.perf_counter()
-        # Aplica o Grid Search no modelo
-        best_model, best_params, best_score = applyGridSearch(
-            model_used=model,
-            params=params,
-            scoring_method=scoring_method,
-            X_fit=x_fit,
-            y_fit=y_fit,
-            groups=group_fit,
-            X_val=X_val,
-            y_val=y_val_encoded,
-            usa_validation_data=eh_modelo_keras,
-        )
-        end_time = time.perf_counter() - start_time
-        # Realiza o teste e grava métricas em arquivos
-        model_name = model_name.replace(':', '_')
-        melhor_treino, f1_pct, acc_pct = avaliar_modelo_teste(
-            model_name=model_name,
-            model=best_model,
-            best_params=best_params,
-            label_encoder=label_encoder,
-            X_test=X_test,
-            y_test=y_test,
-            n_amostras_treino=x_fit.shape[0],
-            n_aumentos=N_AUMENTOS,
-            augmentation=usar_augmentation,
-            usa_predict_proba=eh_modelo_keras,
-            time=end_time
-        )
-        # Substitui o modelo em models/ apenas quando o treino supera o melhor já salvo
-        if melhor_treino:
-            if eh_modelo_keras:
-                best_model.model_.save(KERAS_PATH % model_name)
-                print(f'[OK] Modelo {model_name} salvo em "{KERAS_PATH % model_name}"')
-            else:
-                joblib.dump(best_model, PICKLE_PATH % model_name, compress=3)
-                print(f'[OK] Modelo {model_name} salvo em "{PICKLE_PATH % model_name}"')
-            # Métricas gravadas após o modelo, para best/ não apontar para um modelo que não foi salvo
-            salvar_melhores_metricas(model_name, f1_pct, acc_pct)
+        for exec in range(n_execucoes):
+            tf.keras.backend.clear_session()
+            gc.collect()
+            
+            seed_exec = 42 + exec
+            print(f"\n[{model_to_create}] Na execução {exec+1}/{n_execucoes+1}")
+            match(model_to_create):
+                case "lstm":
+                    # Configuração de Early Stopping para evitar
+                    # a passagem por todas as 100 épocas em todos
+                    # os treinamentos
+                    early_stopping = EarlyStopping(
+                        monitor="val_loss",
+                        patience=10,
+                        restore_best_weights=True
+                    )
+                    cleanup_cb = MemoryCleanupCallback()
+                    model = KerasClassifier(
+                        model=create_lstm_model,
+                        model__input_shape=input_shape,
+                        model__num_classes=num_labels,
+                        verbose=0,
+                        callbacks=[early_stopping, cleanup_cb]
+                    )
+                case "kmeans":
+                    model = criar_pipeline_kmeans()
+                case "rf":
+                    model = criar_pipeline_rf(seed_exec)
+                case "xgboost":
+                    model = criar_pipeline_xgboost(seed_exec)
+                case "tcn":
+                    early_stopping = EarlyStopping(
+                        monitor="val_loss",
+                        patience=10,
+                        restore_best_weights=True
+                    )
+                    cleanup_cb = MemoryCleanupCallback()
+                    model = KerasClassifier(
+                        model=create_tcn_model,
+                        model__input_shape=input_shape,
+                        model__num_classes=num_labels,
+                        verbose=0,
+                        callbacks=[early_stopping, cleanup_cb]
+                    )    
+                case _:
+                    pass
+
+            start_time = time.perf_counter()
+            # Aplica o Grid Search no modelo
+            best_model, best_params, best_score = applyGridSearch(
+                model_used=model,
+                params=params,
+                scoring_method=scoring_method,
+                X_fit=x_fit,
+                y_fit=y_fit,
+                groups=group_fit,
+                X_val=X_val,
+                y_val=y_val_encoded,
+                usa_validation_data=eh_modelo_keras,
+                random_state=seed_exec
+            )
+            end_time = time.perf_counter() - start_time
+            # Realiza o teste e grava métricas em arquivos
+            model_name = model_name.replace(':', '_')
+            melhor_treino, f1_pct, acc_pct = avaliar_modelo_teste(
+                model_name=model_name,
+                model=best_model,
+                best_params=best_params,
+                label_encoder=label_encoder,
+                X_test=X_test,
+                y_test=y_test,
+                n_amostras_treino=x_fit.shape[0],
+                n_aumentos=N_AUMENTOS,
+                augmentation=usar_augmentation,
+                usa_predict_proba=eh_modelo_keras,
+                time=end_time
+            )
+            # Substitui o modelo em models/ apenas quando o treino supera o melhor já salvo
+            if melhor_treino:
+                if eh_modelo_keras:
+                    best_model.model_.save(KERAS_PATH % model_name)
+                    print(f'[OK] Modelo {model_name} salvo em "{KERAS_PATH % model_name}"')
+                else:
+                    joblib.dump(best_model, PICKLE_PATH % model_name, compress=3)
+                    print(f'[OK] Modelo {model_name} salvo em "{PICKLE_PATH % model_name}"')
+                # Métricas gravadas após o modelo, para best/ não apontar para um modelo que não foi salvo
+                salvar_melhores_metricas(model_name, f1_pct, acc_pct)
 
     # Armazena o LabelEncoder em disco
     with open(ENCODER_PATH, 'wb') as f:

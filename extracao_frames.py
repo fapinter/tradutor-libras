@@ -1,7 +1,5 @@
 import os
-
 import cv2
-
 from utils.constants import FRAME_RATE, FRAMES_DIR, VIDEO_EXTENSIONS, VIDEOS_DIR
 from sklearn.model_selection import train_test_split
 
@@ -18,7 +16,7 @@ from sklearn.model_selection import train_test_split
 #               - minds_{id_video}.mp4
 
 
-'''
+
 def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAMES_DIR):
     if not os.path.exists(pasta_videos):
         print(f"Aviso: A pasta '{pasta_videos}' nao foi encontrada.")
@@ -46,9 +44,9 @@ def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAME
                     else:
                         output_dir = os.path.join(pasta_destino_frames, 'teste')
                     extract_frames(video_path=video_path, output_dir=output_dir, gesture_label=gesto)
-'''
 
-def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAMES_DIR):
+
+def extrair_dataset_completo_minds(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAMES_DIR):
     if not os.path.exists(pasta_videos):
         print(f"Aviso: A pasta '{pasta_videos}' nao foi encontrada.")
         return
@@ -107,12 +105,9 @@ def extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames=FRAME
                 ),
                 gesture_label=gesto
             )
-            
+         
 # coleta frames de um video especifico
-def extract_frames(video_path,
-                   output_dir,
-                   gesture_label,
-                   frame_rate=FRAME_RATE):
+def extract_frames(video_path, output_dir, gesture_label, frame_rate=FRAME_RATE):
     gesture_dir = os.path.join(output_dir, gesture_label)
     os.makedirs(gesture_dir, exist_ok=True)
 
@@ -143,6 +138,5 @@ def extract_frames(video_path,
 
     cap.release()
 
-
 if __name__ == '__main__':
-    extrair_dataset_completo(pasta_videos=VIDEOS_DIR,pasta_destino_frames="dataset/frames_minds")
+    extrair_dataset_completo(pasta_videos=VIDEOS_DIR, pasta_destino_frames="dataset/frames")

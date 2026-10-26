@@ -119,10 +119,10 @@ PARAM_GRID_TCN = {
 }
 
 PARAM_GRID_XGBOOST = {
-    "xgb__n_estimators": [200, 400],
-    "xgb__max_depth": [3, 6],
+    "xgb__n_estimators": [200, 400, 600],
+    "xgb__max_depth": [3, 6, 10],
     "xgb__learning_rate": [0.05, 0.1],
-    "xgb__subsample": [0.8, 1.0],
+    "xgb__subsample": [0.6, 0.8],
 }
 
 # Captura de Vídeo em Tempo Real
@@ -142,8 +142,8 @@ FRAMES_TREINO_DIR = "dataset/frames/treinamento"
 FRAMES_TESTE_DIR = "dataset/frames/teste"
 
 
-DATASET_TREINO_CSV = "dataset/treino_preprocessed.csv"
-DATASET_TESTE_CSV = "dataset/teste_preprocessed.csv"
+DATASET_TREINO_CSV = "dataset/treino.csv"
+DATASET_TESTE_CSV = "dataset/teste.csv"
 
 DATASET_TREINO_MINDS_CSV = "dataset/treino_minds_70.csv"
 DATASET_TESTE_MINDS_CSV = "dataset/teste_minds_30.csv"
@@ -165,7 +165,7 @@ RELATORIO_AVALIACAO_TESTE = "outputs/relatorio_avaliacao_teste.txt"
 
 MATRIZ_PATH = "outputs/matriz_%s.png"
 RESULTS_PATH = "outputs/results_%s.txt"
-LOSS_PATH = "outputs/acc_%s.png"
+ACC_PATH = "outputs/acc_%s.png"
 
 # Métricas do melhor treino de cada modelo (f1-macro e acurácia, em %)
 BEST_PATH = "best/%s.txt"
