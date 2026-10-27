@@ -151,7 +151,7 @@ def applyGridSearch(
     )
 
     if usa_validation_data:
-        n_jobs = -1
+        n_jobs = 6
     else:
         n_jobs = -1
 
@@ -298,16 +298,16 @@ if __name__ == "__main__":
 
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation, Número de Execuções
-        #('lstm:final', PARAM_GRID_LSTM,  False, 3),
-        #('lstm:final_aug', PARAM_GRID_LSTM, True, 3),
+        ('lstm:final', PARAM_GRID_LSTM,  False, 4),
+        ('lstm:final_aug', PARAM_GRID_LSTM, True, 4),
         #('tcn:final_aug', PARAM_GRID_TCN,  True, 3),
         #('tcn:final', PARAM_GRID_TCN,  False, 3),
-        ('xgboost:final_aug', PARAM_GRID_XGBOOST, True, 4),
-        ('xgboost:final', PARAM_GRID_XGBOOST, False, 4),
-        ('rf:final_aug', PARAM_GRID_RF,  True, 4),
-        ('rf:final', PARAM_GRID_RF,  False, 4),
-        ('kmeans:final_aug', PARAM_GRID_KMEANS, True, 4),
-        ('kmeans:final', PARAM_GRID_KMEANS, False, 4),
+        #('rf:final_aug', PARAM_GRID_RF,  True, 4),
+        #('rf:final', PARAM_GRID_RF,  False, 4),
+        #('kmeans:final_aug', PARAM_GRID_KMEANS, True, 4),
+        #('kmeans:final', PARAM_GRID_KMEANS, False, 4),
+        #('xgboost:final_aug', PARAM_GRID_XGBOOST, True, 4),
+        #('xgboost:final', PARAM_GRID_XGBOOST, False, 4),
 
     ]
     has_network = False

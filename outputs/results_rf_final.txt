@@ -1,0 +1,31 @@
+Total de Amostras de Teste: 342
+Acurácia no Teste: 45.03%
+F1-Score Macro:             45.34%
+Tempo total de Treino: 1.1425 minutos | 0.0190 horas
+Época parada: NoneHiperparametros do rf_final: dict_items([('rf__max_depth', 30), ('rf__n_estimators', 400)])
+Relatório de Classificação por Classe:
+              precision    recall  f1-score   support
+
+   acontecer       0.10      0.70      0.17        10
+       aluno       0.50      0.18      0.26        17
+     amarelo       0.64      0.56      0.60        16
+     america       0.55      1.00      0.71        18
+  aproveitar       0.50      0.46      0.48        13
+        bala       0.88      0.62      0.73        24
+       banco       0.53      0.53      0.53        19
+    banheiro       0.64      0.44      0.52        16
+     barulho       0.75      0.21      0.32        29
+    conhecer       1.00      0.07      0.13        14
+     espelho       0.73      0.44      0.55        18
+     esquina       0.22      0.33      0.27        18
+       filho       0.67      0.27      0.38        15
+        maca       0.67      0.38      0.48        21
+        medo       0.62      0.36      0.45        14
+        ruim       0.39      0.50      0.44        14
+        sapo       0.35      0.50      0.41        24
+      vacina       0.67      0.53      0.59        19
+     vontade       0.67      0.52      0.59        23
+
+    accuracy                           0.45       342
+   macro avg       0.58      0.45      0.45       342
+weighted avg       0.60      0.45      0.47       342

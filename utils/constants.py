@@ -104,8 +104,8 @@ PARAM_GRID_KMEANS = {
 }
 
 PARAM_GRID_RF = {
-    "rf__n_estimators": [200, 300, 400],
-    "rf__max_depth": [20, 30, None],
+    "rf__n_estimators": [300, 400, 500, 600],
+    "rf__max_depth": [20, 30, 50, None],
 }
 
 
@@ -119,10 +119,10 @@ PARAM_GRID_TCN = {
 }
 
 PARAM_GRID_XGBOOST = {
-    "xgb__n_estimators": [200, 400, 600],
-    "xgb__max_depth": [3, 6, 10],
-    "xgb__learning_rate": [0.05, 0.1],
-    "xgb__subsample": [0.6, 0.8],
+    "xgb__n_estimators": [400, 600],#200, 400],
+    "xgb__max_depth": [6, 10, 15],#3, 6],
+    "xgb__learning_rate": [0.05, 0.1],#, 0.1],
+    "xgb__subsample": [0.6, 0.8]#0.6, 0.8],
 }
 
 # Captura de Vídeo em Tempo Real

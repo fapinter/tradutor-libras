@@ -115,12 +115,7 @@ def extract_features_from_directory(
     is_train = True
     if not str(os.path.basename(output_path)).startswith('treino'):
         is_train = False
-    
-    if preprocess:
-        feature_logs_path = f"{LOGS_DIR}/{'treino' if is_train else 'teste'}_preprocess.txt"
-    else:
-        feature_logs_path = f'{LOGS_DIR}/{'treino' if is_train else 'teste'}.txt'
-
+    feature_logs_path = f'{LOGS_DIR}/{'treino' if is_train else 'teste'}.txt'
     if not os.path.exists(feature_logs_path):
         file_ = open(feature_logs_path, 'x')
     else:

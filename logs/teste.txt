@@ -30,10 +30,10 @@ Frames duplicados em banheiro: 42/157
 Frames de padding em banheiro: 5/162
 Vídeos com padding em banheiro: 1/7
   -> 16 sequência(s) para 'banheiro'
-Frames duplicados em barulho: 32/173
-Frames de padding em barulho: 6/179
+Frames duplicados em barulho: 32/219
+Frames de padding em barulho: 6/225
 Vídeos com padding em barulho: 1/7
-  -> 20 sequência(s) para 'barulho'
+  -> 29 sequência(s) para 'barulho'
 Frames duplicados em conhecer: 32/144
 Frames de padding em conhecer: 7/151
 Vídeos com padding em conhecer: 1/7
@@ -74,9 +74,9 @@ Frames duplicados em vontade: 41/185
 Frames de padding em vontade: 7/192
 Vídeos com padding em vontade: 1/7
   -> 23 sequência(s) para 'vontade'
-Shape das features: (333, 15, 127)
+Shape das features: (342, 15, 127)
 
-Extração concluída! Total de 333 amostras coletadas
+Extração concluída! Total de 342 amostras coletadas
 
-Detecção de Frames: 2279/3079 = 74.01753816174083%
-Número de Frames com Padding: 113/3192 = 3.5401002506265664%
+Detecção de Frames: 2325/3125 = 74.4%
+Número de Frames com Padding: 113/3238 = 3.4898085237801113%
