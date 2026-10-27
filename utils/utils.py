@@ -2,7 +2,18 @@ import csv
 import os
 from datetime import datetime
 
-from utils.constants import BEST_DIR, BEST_PATH, RESULTADOS_TREINO_CSV, VIDEOS_POR_INTERPRETE, ZEROS_MAO
+import numpy as np
+
+from utils.constants import (
+    BEST_DIR,
+    BEST_PATH,
+    POSE_LANDMARKS_USADOS,
+    POSE_OMBRO_DIREITO,
+    POSE_OMBRO_ESQUERDO,
+    RESULTADOS_TREINO_CSV,
+    VIDEOS_POR_INTERPRETE,
+    ZEROS_MAO,
+)
 
 
 def interprete_do_video(video_id):
@@ -12,6 +23,57 @@ def interprete_do_video(video_id):
     """
     id_video = int(video_id.rsplit('_', 1)[-1])
     return (id_video - 1) // VIDEOS_POR_INTERPRETE + 1
+
+
+def _landmarks_em_pixels(landmarks, largura, altura):
+    """
+    Converte landmarks do MediaPipe (x e y normalizados pela largura e altura da imagem,
+    z na escala do x) para pixels, deixando os três eixos na mesma unidade e
+    removendo a distorção causada pela proporção da imagem.
+    """
+    return np.array([[lm.x * largura, lm.y * altura, lm.z * largura] for lm in landmarks])
+
+
+def normalizar_holistic(resultado, largura, altura):
+    """
+    Normaliza os landmarks do Holistic em relação ao corpo, retornando NUM_FEATURES features:
+        [mão direita (63)] + [mão esquerda (63)] + [pose: ombros, cotovelos, pulsos e quadris (16, apenas x e y)]
+
+    1. Converte todos os pontos para pixels (ver _landmarks_em_pixels).
+    2. Origem de x e y no ponto médio entre os ombros → remove a posição da pessoa na imagem.
+    3. Divide pela largura dos ombros em 2D → remove a distância da câmera, a resolução
+       e o tamanho do intérprete, mantendo a posição das mãos em relação ao corpo.
+    4. O z das mãos continua relativo ao próprio pulso (profundidade dos dedos), na mesma
+       escala de x e y. O z do Pose não é usado: o MediaPipe o estima de forma exagerada
+       e instável (com a pessoa parada, o z dos ombros oscila e os pulsos chegam a ~3 larguras
+       de ombro à frente do corpo).
+
+    Mão não detectada → bloco de zeros. Retorna None sem pose (não há referência do corpo).
+    A mão direita é a mão direita da pessoa (right_hand_landmarks do Holistic).
+    """
+    if not resultado.pose_landmarks:
+        return None
+
+    pose = _landmarks_em_pixels(resultado.pose_landmarks, largura, altura)
+    ombro_esq, ombro_dir = pose[POSE_OMBRO_ESQUERDO], pose[POSE_OMBRO_DIREITO]
+    origem = (ombro_esq + ombro_dir) / 2
+    origem[2] = 0.0
+    escala = np.linalg.norm(ombro_esq[:2] - ombro_dir[:2])
+    if escala < 1e-6:
+        return None
+
+    features = []
+    for mao in (resultado.right_hand_landmarks, resultado.left_hand_landmarks):
+        if not mao:
+            features += ZEROS_MAO
+            continue
+        pontos = _landmarks_em_pixels(mao, largura, altura)
+        pontos[:, 2] -= pontos[0, 2]
+        features += ((pontos - origem) / escala).ravel().tolist()
+
+    pose_xy = pose[list(POSE_LANDMARKS_USADOS), :2]
+    features += ((pose_xy - origem[:2]) / escala).ravel().tolist()
+    return features
 
 
 def normalizar_mao(hand_landmarks):

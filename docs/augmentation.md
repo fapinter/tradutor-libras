@@ -17,6 +17,15 @@ Landmarks 13–16 → anelar
 Landmarks 17–20 → mínimo
 ```
 
+### Formato da extração com o Holistic
+
+Na extração com o MediaPipe Holistic (`feature_extraction.py`), cada frame tem **142 valores**: mão direita (63) + mão esquerda (63) + pose (ombros, cotovelos, pulsos e quadris: 8 pontos, apenas x e y = 16). Todos os pontos são relativos ao corpo: a origem é o centro dos ombros e a unidade é a largura dos ombros. Por isso:
+
+- a origem das transformações de escala e rotação passa a ser o centro dos ombros (e não o pulso), e as mãos **não** são recentralizadas no pulso depois das transformações, pois isso apagaria a posição delas em relação ao corpo;
+- no espelhamento, além da troca entre mão direita e esquerda, cada ponto do Pose troca de lugar com o seu par do outro lado do corpo (ombros, cotovelos, pulsos e quadris).
+
+O módulo identifica o formato pelo número de features do frame (126 ou 142).
+
 ## Transformações feitas
 
 ### 1. Ruído Gaussiano

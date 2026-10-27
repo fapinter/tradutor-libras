@@ -3,13 +3,6 @@ import multiprocessing
 import os
 from functools import partial
 
-# No Linux, o triton (importado pelo torch/ultralytics) causa segmentation fault se for carregado
-# depois do MediaPipe/TensorFlow, então é importado antes deles quando estiver instalado
-try:
-    import triton  # noqa: F401
-except ImportError:
-    pass
-
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -17,7 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from feature_extraction import preprocessImage
-from tests_extraction import detectar_yolo, maos_para_features
+from tests_extraction import maos_para_features
 from utils.constants import (
     CROP_ESCALA_OMBROS,
     DEFAULT_STEP,
@@ -27,19 +20,11 @@ from utils.constants import (
     FRAMES_TREINO_DIR,
     LANDMARKER_PATH,
     LOGS_DIR,
-    NUM_FEATURES,
+    NUM_FEATURES_MAOS,
     NUM_HANDS,
     POSE_LANDMARKER_PATH,
     SEQUENCE_LENGTH,
-    YOLO_CONFIANCA,
-    YOLO_CONFIANCA_KPT,
-    YOLO_HAND_MODEL_PATH,
-    YOLO_PERSON_MODEL_PATH,
-    YOLO_POSE_COMPRIMENTO_MAO,
-    YOLO_POSE_COTOVELOS,
-    YOLO_POSE_OMBROS,
-    YOLO_POSE_PULSOS,
-    ZEROS_FRAME,
+    ZEROS_FRAME_MAOS,
 )
 from utils.constants_cv import (
     BaseOptions,
@@ -51,7 +36,6 @@ from utils.constants_cv import (
 )
 
 MODOS = ("separado",)
-EXTRATORES = ("mediapipe", "yolo")
 
 # Landmarks do Pose de cada mão da pessoa: pulso, mínimo, indicador, polegar.
 # A mão direita da pessoa corresponde ao rótulo "Right" do MediaPipe Hands neste dataset.
@@ -60,8 +44,6 @@ POSE_OMBROS = (11, 12)
 
 # Processos paralelos da extração (deixa 2 núcleos livres para o sistema)
 NUM_PROCESSOS = max(1, (os.cpu_count() or 1))
-# Com o YOLO cada processo carrega os modelos na GPU, então são usados menos processos
-NUM_PROCESSOS_YOLO = min(4, NUM_PROCESSOS)
 
 
 def detectar_pose(pose_landmarker, img_rgb):
@@ -82,40 +64,6 @@ def detectar_pose(pose_landmarker, img_rgb):
     }
     ombro_d, ombro_e = (lms[i] for i in POSE_OMBROS)
     ombros = np.hypot((ombro_d.x - ombro_e.x) * w, (ombro_d.y - ombro_e.y) * h)
-    return maos, max(ombros, 1.0)
-
-
-def detectar_pose_yolo(modelo, img_bgr):
-    """
-    Equivalente ao detectar_pose com o YOLO-Pose (COCO-Pose), usando a pessoa de maior confiança.
-    Como o COCO-Pose não tem pontos dos dedos, cada mão é representada pelo pulso e pela ponta
-    estimada pelo prolongamento do antebraço ({"Right"|"Left": array (2, 2)}, ou (1, 2) sem o cotovelo).
-    Pulsos com confiança baixa ficam como NaN, sendo tratados como mão fora da imagem.
-    """
-    result = modelo(img_bgr, conf=YOLO_CONFIANCA, verbose=False)[0]
-    if result.keypoints is None or len(result.boxes) == 0:
-        return None, None
-
-    idx = int(result.boxes.conf.argmax())
-    kpts = result.keypoints.xy[idx].cpu().numpy()  # (17, 2), em pixels
-    conf = result.keypoints.conf
-    conf = conf[idx].cpu().numpy() if conf is not None else np.ones(len(kpts))
-
-    maos = {}
-    for label, i_pulso in YOLO_POSE_PULSOS.items():
-        pulso = kpts[i_pulso]
-        if conf[i_pulso] < YOLO_CONFIANCA_KPT:
-            maos[label] = np.full((1, 2), np.nan)
-            continue
-        i_cotovelo = YOLO_POSE_COTOVELOS[label]
-        if conf[i_cotovelo] < YOLO_CONFIANCA_KPT:
-            maos[label] = pulso[None]
-        else:
-            ponta = pulso + YOLO_POSE_COMPRIMENTO_MAO * (pulso - kpts[i_cotovelo])
-            maos[label] = np.array([pulso, ponta])
-
-    ombro_d, ombro_e = (kpts[i] for i in YOLO_POSE_OMBROS)
-    ombros = np.linalg.norm(ombro_d - ombro_e)
     return maos, max(ombros, 1.0)
 
 
@@ -169,8 +117,7 @@ def detectar_no_recorte(detectar_maos, img, caixa):
     """
     Aplica o detector de mãos no recorte e converte os landmarks para coordenadas normalizadas da
     imagem inteira, mantendo o formato do dataset atual. Retorna uma lista de arrays (21, 3).
-    detectar_maos recebe o recorte (RGB para o MediaPipe, BGR para o YOLO) e retorna as mãos
-    com coordenadas normalizadas pelo recorte.
+    detectar_maos recebe o recorte RGB e retorna as mãos com coordenadas normalizadas pelo recorte.
     """
     crop, (x0, y0, lado) = recortar(img, caixa)
 
@@ -180,7 +127,6 @@ def detectar_no_recorte(detectar_maos, img, caixa):
         mao[:, 0] = (mao[:, 0] * lado + x0) / w
         mao[:, 1] = (mao[:, 1] * lado + y0) / h
         # Z do MediaPipe está na escala do X do recorte -> converte para a escala do X da imagem inteira
-        # (o YOLO não estima profundidade, então Z = 0)
         mao[:, 2] = mao[:, 2] * lado / w
         maos.append(mao)
     return maos
@@ -251,25 +197,16 @@ def extrair_unico(detectar_maos, img, pose_maos, ombros):
 
 
 # Detectores de cada processo da extração paralela (criados uma única vez por processo)
-_extrator = None
 _landmarker = None
 _pose_landmarker = None
 
 
-def _iniciar_processo(extrator, landmarker_path, pose_landmarker_path):
+def _iniciar_processo(landmarker_path, pose_landmarker_path):
     """
     Inicializador dos processos paralelos: cada processo tem o seu próprio detector de mãos e de pose
-    (HandLandmarker e Pose do MediaPipe, ou os modelos YOLO-Pose das mãos e das pessoas).
+    (HandLandmarker e Pose do MediaPipe).
     """
-    global _extrator, _landmarker, _pose_landmarker
-    _extrator = extrator
-    if extrator == "yolo":
-        # Import local para o extrator mediapipe não depender do ultralytics
-        from ultralytics import YOLO
-        _landmarker = YOLO(landmarker_path)
-        _pose_landmarker = YOLO(pose_landmarker_path)
-        return
-
+    global _landmarker, _pose_landmarker
     _landmarker = HandLandmarker.create_from_options(HandLandmarkerOptions(
         base_options=BaseOptions(landmarker_path),
         running_mode=VisionRunningMode.IMAGE,
@@ -290,10 +227,7 @@ def _processar_video(args):
     """
     path_video, frames, mode, preprocess = args
     extrair = extrair_separado if mode == "separado" else extrair_unico
-    if _extrator == "yolo":
-        detectar_maos = partial(detectar_yolo, _landmarker)
-    else:
-        detectar_maos = partial(detectar_maos_mediapipe, _landmarker)
+    detectar_maos = partial(detectar_maos_mediapipe, _landmarker)
 
     deteccoes = []
     stats = {"sem_pose": 0, "visiveis": 0, "detectadas": 0}
@@ -308,13 +242,8 @@ def _processar_video(args):
             if img_bgr is None:
                 raise ValueError("não foi possível ler a imagem")
             # Localização das mãos pelo Pose e detecção das landmarks nos recortes
-            # (o MediaPipe trabalha com imagens RGB e o YOLO com BGR)
-            if _extrator == "yolo":
-                img = img_bgr
-                pose_maos, ombros = detectar_pose_yolo(_pose_landmarker, img)
-            else:
-                img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-                pose_maos, ombros = detectar_pose(_pose_landmarker, img)
+            img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+            pose_maos, ombros = detectar_pose(_pose_landmarker, img)
             if pose_maos is None:
                 stats["sem_pose"] += 1
                 maos = {}
@@ -334,13 +263,12 @@ def extract_features_from_directory(
     dataset_root_dir,
     output_path,
     mode="separado",
-    extrator="mediapipe",
-    landmarker_path=None,
-    pose_landmarker_path=None,
+    landmarker_path=LANDMARKER_PATH,
+    pose_landmarker_path=POSE_LANDMARKER_PATH,
     sequence_length=SEQUENCE_LENGTH,
     step=DEFAULT_STEP,
     preprocess=False,
-    num_processos=None
+    num_processos=NUM_PROCESSOS
 ):
     """
     Varre os diretórios de frames e extrai sequências 3D de coordenadas normalizadas de AMBAS as mãos,
@@ -348,36 +276,15 @@ def extract_features_from_directory(
         - separado: um recorte quadrado por mão, com as detecções unidas em um único vetor
         - unico: um único recorte quadrado contendo as duas mãos
 
-    O extrator define os detectores utilizados:
-        - mediapipe: MediaPipe Pose + HandLandmarker
-        - yolo: YOLO-Pose das pessoas (COCO-Pose) + YOLO-Pose das mãos (hand-keypoints)
-    landmarker_path, pose_landmarker_path e num_processos usam os valores padrão do extrator quando None.
-
     A detecção roda em num_processos processos paralelos, um vídeo por vez em cada processo.
     Exporta o dataset para output_path e o log da extração para logs/<nome do csv>.txt.
     """
     if mode not in MODOS:
         raise ValueError(f"mode inválido: '{mode}'. Valores aceitos: {MODOS}")
-    if extrator not in EXTRATORES:
-        raise ValueError(f"extrator inválido: '{extrator}'. Valores aceitos: {EXTRATORES}")
 
     if not os.path.exists(dataset_root_dir):
         print(f"[ERRO] Diretório '{dataset_root_dir}' não encontrado.")
         return
-
-    if extrator == "yolo":
-        landmarker_path = landmarker_path or YOLO_HAND_MODEL_PATH
-        pose_landmarker_path = pose_landmarker_path or YOLO_PERSON_MODEL_PATH
-        num_processos = num_processos or NUM_PROCESSOS_YOLO
-        if not os.path.exists(landmarker_path):
-            raise FileNotFoundError(f"Modelo YOLO '{landmarker_path}' não encontrado.")
-        # Baixa os pesos pré-treinados uma única vez, antes de os processos paralelos carregarem o modelo
-        from ultralytics.utils.downloads import attempt_download_asset
-        pose_landmarker_path = str(attempt_download_asset(pose_landmarker_path))
-    else:
-        landmarker_path = landmarker_path or LANDMARKER_PATH
-        pose_landmarker_path = pose_landmarker_path or POSE_LANDMARKER_PATH
-        num_processos = num_processos or NUM_PROCESSOS
 
     # Estrutura do dataset: gesto -> vídeos -> frames ordenados (ordem temporal obrigatória)
     estrutura = []
@@ -405,7 +312,7 @@ def extract_features_from_directory(
     feature_logs_path = f"{LOGS_DIR}/{nome_csv}.txt"
     file_ = open(feature_logs_path, 'w')
     file_.write(f"Modo: crop {mode} (escala do recorte: {CROP_ESCALA_OMBROS} x largura dos ombros)\n")
-    file_.write(f"Extrator: {extrator} (mãos: {landmarker_path} | pose: {pose_landmarker_path})\n")
+    file_.write(f"Modelos: mãos: {landmarker_path} | pose: {pose_landmarker_path}\n")
     file_.write(f"Pré-processamento: {'sim' if preprocess else 'não'}\n\n")
 
     frames_totais_global = 0
@@ -416,13 +323,10 @@ def extract_features_from_directory(
     maos_detectadas = 0
 
     print(f"Processos paralelos: {num_processos}")
-    # O YOLO usa processos "spawn": com "fork" os processos travam após o torch ser importado no
-    # processo principal, e o CUDA não pode ser inicializado em processos criados por fork
-    contexto = multiprocessing.get_context("spawn" if extrator == "yolo" else None)
-    with contexto.Pool(
+    with multiprocessing.Pool(
         num_processos,
         initializer=_iniciar_processo,
-        initargs=(extrator, landmarker_path, pose_landmarker_path)
+        initargs=(landmarker_path, pose_landmarker_path)
     ) as pool, tqdm(total=sum(len(t[1]) for t in tarefas), unit="frame", desc=nome_csv) as barra:
         # imap mantém a ordem dos vídeos, então as sequências são montadas como na versão sequencial
         resultados = pool.imap(_processar_video, tarefas)
@@ -444,7 +348,7 @@ def extract_features_from_directory(
                 # ID usado para identificar o Grupo no StratifiedGroupKFold
                 video_id = f"{gesto}_{os.path.basename(video_dir)}"
                 video_landmarks = []
-                ultimo_valido = [0.0] * NUM_FEATURES
+                ultimo_valido = [0.0] * NUM_FEATURES_MAOS
 
                 deteccoes, stats, erros = next(resultados)
                 barra.update(len(frames))
@@ -481,7 +385,7 @@ def extract_features_from_directory(
                     frames_padding_global += num_frames_padding
                     num_videos_padding += 1
                     video_landmarks.extend(
-                        [ZEROS_FRAME for _ in range(num_frames_padding)]
+                        [ZEROS_FRAME_MAOS for _ in range(num_frames_padding)]
                     )
 
                 # Geração de Amostras de SEQUENCE_LENGTH frames
@@ -557,9 +461,9 @@ def extract_features_from_directory(
     print(f"Dataset exportado: {output_path}")
 
 
-def extrair_datasets(mode, extrator="mediapipe", preprocess=False):
+def extrair_datasets(mode, preprocess=False):
     """
-    Extrai os datasets de treino e teste com o modo de recorte e o extrator informados, salvando em
+    Extrai os datasets de treino e teste com o modo de recorte informado, salvando em
     dataset/{treino|teste}_<configuração>.csv e logs/{treino|teste}_<configuração>.txt.
     """
     for split, frames_dir in (("treino", "dataset/frames/treinamento"), ("teste", "dataset/frames/teste")):
@@ -568,7 +472,6 @@ def extrair_datasets(mode, extrator="mediapipe", preprocess=False):
             dataset_root_dir=frames_dir,
             output_path=f"dataset/{split}_crop.csv",
             mode=mode,
-            extrator=extrator,
             sequence_length=SEQUENCE_LENGTH,
             step=DEFAULT_STEP,
             preprocess=preprocess
@@ -577,4 +480,4 @@ def extrair_datasets(mode, extrator="mediapipe", preprocess=False):
 
 if __name__ == "__main__":
     for mode in MODOS:
-        extrair_datasets(mode, extrator="mediapipe", preprocess=True)
+        extrair_datasets(mode, preprocess=True)

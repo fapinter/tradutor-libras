@@ -101,7 +101,7 @@ def tcn_residual_block(
     x = Dropout(dropout_rate)(x)
 
     # Ajusta a quantidade de canais do residual caso necessário.
-    # A entrada possui 126 features, enquanto a TCN pode utilizar
+    # A entrada possui 126 (mãos) ou 142 (Holistic) features, enquanto a TCN pode utilizar
     # 32 ou 64 filtros.
     if residual.shape[-1] != filters:
         residual = Conv1D(
@@ -129,12 +129,12 @@ def create_tcn_model(
     das sequências de landmarks do MediaPipe.
 
     Entrada:
-        (frames, 126 features)
+        (frames, features): 126 features (apenas mãos) ou 142 (Holistic)
 
     Exemplo:
         (15, 126)
         ou
-        (20, 126)
+        (15, 142)
     """
 
     tf.keras.backend.clear_session()

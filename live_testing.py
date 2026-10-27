@@ -33,7 +33,7 @@ from utils.constants import (
     LANDMARKER_PATH,
     LSTM_PATH,
     MIN_CONFIANCA,
-    NUM_FEATURES,
+    NUM_FEATURES_MAOS,
     NUM_HANDS,
     SEQUENCE_LENGTH,
 )
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     )
 
     sequence_buffer = []
-    last_known_landmarks = [0.0] * NUM_FEATURES
+    last_known_landmarks = [0.0] * NUM_FEATURES_MAOS
     gesto_atual = "Aguardando sinal..." if tem_modelo else "LSTM nao encontrado"
     confianca_atual = 0.0
     frame_idx = 0
@@ -398,7 +398,7 @@ if __name__ == "__main__":
                 break
             elif key in (ord("r"), ord("R")):
                 sequence_buffer.clear()
-                last_known_landmarks = [0.0] * NUM_FEATURES
+                last_known_landmarks = [0.0] * NUM_FEATURES_MAOS
                 if tem_modelo:
                     gesto_atual = "Aguardando sinal..."
                     confianca_atual = 0.0

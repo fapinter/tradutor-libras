@@ -10,4 +10,3 @@ tqdm
 scikeras
 python-dotenv
 xgboost
-ultralytics

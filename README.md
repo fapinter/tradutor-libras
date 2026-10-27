@@ -12,11 +12,10 @@ Esta seção descreve todos os arquivos e diretórios do projeto, seu papel e, q
 
 **`live_testing.py`** — Testes na vida real utilizando a Webcam e um modelo treinado salvo em disco.
 
-**`feature_extraction.py`** — Extrai e normaliza os landmarks de ambas as mãos usando o MediaPipe Hand Landmarker. Varre o diretório dataset/frames e coleta as landmarks, montando N sequências de 20 frames, pulando de 5 em 5 frames
-até não ser mais possível, depois os dados são armazenados em um CSV. Caso as mãos não sejam detectadas em algum frame, 
-o frame anterior eh duplicado para evitar 
-pontos vazios em meio a uma sequência. Caso um vídeo não possua 20 frames, um padding é adicionado ao final 
+**`feature_extraction.py`** — Extrai os landmarks com o MediaPipe Holistic (`utils/holistic_landmarker.task`): as duas mãos completas e, do Pose, os ombros, cotovelos, pulsos e quadris (sem os pontos do rosto e sem os dedos estimados pelo Pose; a malha da face também não é usada). Varre o diretório dataset/frames em processos paralelos, frame a frame: cada frame é processado de forma independente por um Holistic novo no modo IMAGE (o Holistic guarda estado entre chamadas mesmo no modo IMAGE, o que alteraria a pose de um frame conforme os anteriores). Depois monta sequências de `SEQUENCE_LENGTH` frames, pulando de `DEFAULT_STEP` em `DEFAULT_STEP` frames, armazenadas em `dataset/(treino|teste)_holistic.csv`. Os pontos são normalizados em relação ao corpo (`normalizar_holistic` em `utils/utils.py`): origem no centro dos ombros e unidade igual à largura dos ombros, em pixels (sem distorção pela proporção da imagem). As mãos têm x, y e z (z relativo ao próprio pulso) e a pose apenas x e y, pois o z do Pose estimado pelo MediaPipe não é confiável. Mão não detectada vira um bloco de zeros; frame sem pose detectada é preenchido com o frame anterior. Caso um vídeo não possua `SEQUENCE_LENGTH` frames, um padding é adicionado ao final 
 (frames vazios com valores de landmarks zerados).
+
+**`test_crop.py`** e **`tests_extraction.py`** — Extrações experimentais anteriores, apenas das mãos (126 features, normalizadas pelo pulso): com recortes das mãos localizadas pelo MediaPipe Pose e com o HandLandmarker na imagem inteira, respectivamente.
 
 **`pipeline.py`** — Pipeline de treinamento dos modelos, coleta os dados de treino e teste, separa o treino entre
 treino e validação, aplica Data Augmentation nos dados de treino, depois treina os modelos inseridos na lista usando
@@ -27,7 +26,7 @@ para uso posterior.
 **`extracao_frames.py`** — Realiza o processamento dos vídeos dos datasets, capturando seus frames, salvos no diretório
 `dataset/frames/{treinamento|teste}/{gesto}/{id_video}/{id_frame}.jpg`.
 
-**`landmark_augmentation.py`** — Aplica transformações geométricas nos vetores de landmarks sem reprocessar imagens: ruído gaussiano (σ=0,005), escala uniforme (±15%), rotação 2D (±15°) e espelhamento horizontal. Os parâmetros aleatórios são pré-gerados uma vez e aplicados igualmente a todos os frames, preservando a coerência temporal. Para gestos de duas mãos, o espelhamento também troca direita e esquerda.
+**`landmark_augmentation.py`** — Aplica transformações geométricas nos vetores de landmarks sem reprocessar imagens: ruído gaussiano (σ=0,005), escala uniforme (±15%), rotação 2D (±15°) e espelhamento horizontal. Os parâmetros aleatórios são pré-gerados uma vez e aplicados igualmente a todos os frames, preservando a coerência temporal. O espelhamento também troca direita e esquerda (mãos e pontos do Pose). Suporta os datasets apenas das mãos (126 features) e os do Holistic (142 features); detalhes em `docs/augmentation.md`.
 
 **`utils/`** - Diretório contendo constantes do projeto, e funções auxiliares para o pipeline.
 
@@ -42,7 +41,7 @@ vidos (80MB cada, ~60GB o dataset como um todo)
 **`dataset/frames`** — Frames extraídos dos vídeos, separados no subdiretório `treinamento e teste`. Cada vídeo gera uma subpasta numerada (`01`,`02`,`03`, ...) dentro da pasta do gesto correspondente, não adicionados ao repositório devido ao tamanho total de todos os frames (6 a 7 GB).
 
 
-**`dataset/(treinamento|teste).csv`** — Dataset de features em 3D. Colunas: `target`(Nome do gesto), `video_id`(ID do vídeo, `{gesto}_{id_video}`; no `pipeline.py` é convertido no intérprete, `(id_video - 1) // 5 + 1`, usado como grupo no split de validação e no GridSearch), `sample_idx` (índice da sequência), `frame_idx` (posição dentro da sequência) + 126 colunas de coordenadas + `duplicado` (Booleano se o frame foi duplicado ou não).
+**`dataset/(treinamento|teste).csv`** — Dataset de features em 3D. Colunas: `target`(Nome do gesto), `video_id`(ID do vídeo, `{gesto}_{id_video}`; no `pipeline.py` é convertido no intérprete, `(id_video - 1) // 5 + 1`, usado como grupo no split de validação e no GridSearch), `sample_idx` (índice da sequência), `frame_idx` (posição dentro da sequência) + colunas de coordenadas + `duplicado` (Booleano se o frame foi duplicado ou não). Nos datasets apenas das mãos são 126 colunas (`d_*` mão direita e `e_*` mão esquerda, x/y/z de 21 landmarks); nos `*_holistic.csv` são 142 colunas: as mesmas 126 das mãos + `p_x_<ponto>`/`p_y_<ponto>` dos 8 pontos do Pose (ombros, cotovelos, pulsos e quadris, ex.: `p_x_ombro_esquerdo`).
 
 ---
 

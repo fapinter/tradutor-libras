@@ -4,11 +4,34 @@ NUM_LANDMARKS_PER_HAND = 21
 COORDINATES_PER_LANDMARK = 3
 NUM_HANDS = 2
 N_MAO = 63
-NUM_FEATURES = 126
+# Features apenas das mãos (extração antiga, HandLandmarker): [mão direita] + [mão esquerda]
+NUM_FEATURES_MAOS = 126
+
+# Landmarks do Pose usados na extração com o Holistic (índice do MediaPipe -> nome da coluna no CSV):
+# braços e tronco, sem os pontos do rosto (0-10) e sem os dedos estimados pelo Pose (17-22),
+# já cobertos pelas mãos completas. Esquerda e direita são da pessoa.
+POSE_LANDMARKS_USADOS = {
+    11: "ombro_esquerdo", 12: "ombro_direito",
+    13: "cotovelo_esquerdo", 14: "cotovelo_direito",
+    15: "pulso_esquerdo", 16: "pulso_direito",
+    23: "quadril_esquerdo", 24: "quadril_direito",
+}
+# Do Pose são usados apenas x e y: o z estimado pelo MediaPipe Pose é exagerado e instável
+COORDINATES_PER_POSE_LANDMARK = 2
+N_POSE = len(POSE_LANDMARKS_USADOS) * COORDINATES_PER_POSE_LANDMARK
+# Features da extração com o Holistic: [mão direita (63)] + [mão esquerda (63)] + [pose (16)]
+NUM_FEATURES = NUM_FEATURES_MAOS + N_POSE
+
+# Índices do Pose (MediaPipe) usados na normalização relativa ao corpo
+POSE_OMBRO_ESQUERDO = 11
+POSE_OMBRO_DIREITO = 12
+# Pares esquerda/direita do Pose, trocados no espelhamento do Data Augmentation
+POSE_PARES_ESPELHO = ((11, 12), (13, 14), (15, 16), (23, 24))
 
 # Vetor de mão ausente
 ZEROS_MAO = [0.0] * N_MAO
-# Vetor de features ausente (nenhuma mão detectada)
+# Vetores de features ausentes (frame sem detecção ou padding)
+ZEROS_FRAME_MAOS = [0.0] * NUM_FEATURES_MAOS
 ZEROS_FRAME = [0.0] * NUM_FEATURES
 
 
@@ -26,6 +49,7 @@ SEQUENCE_LENGTH = 15
 DEFAULT_STEP = 5
 
 LANDMARKER_PATH = "utils/hand_landmarker.task"
+HOLISTIC_LANDMARKER_PATH = "utils/holistic_landmarker.task"
 
 # Constantes do recorte das mãos a partir do MediaPipe Pose (test_crop.py)
 POSE_LANDMARKER_PATH = "utils/pose_landmarker_full.task"
@@ -35,30 +59,6 @@ CROP_ESCALA_OMBROS = 2.0
 DIST_MAX_PULSO_POSE = 0.6
 # Distância média entre landmarks abaixo da qual duas detecções são a mesma mão, em larguras de ombro
 DIST_MESMA_MAO_CROP = 0.1
-
-# Constantes do YOLO (detecção de landmarks das mãos)
-# Modelo YOLO-Pose treinado no dataset hand-keypoints da Ultralytics
-# (21 keypoints na mesma ordem do MediaPipe)
-YOLO_HAND_MODEL_PATH = "utils/yolo_hand_pose.pt"
-YOLO_DATASET_YAML = "utils/hand-keypoints.yaml"
-# Pesos pré-treinados (COCO-Pose) usados como ponto de partida do treinamento
-YOLO_MODELO_BASE = "yolo26n-pose.pt"
-YOLO_CONFIANCA = 0.5
-# Confiança mínima dos keypoints usados na normalização (pulso, base indicador, base mínimo)
-YOLO_CONFIANCA_KPT = 0.5
-# Distância média máxima (coordenadas normalizadas) para considerar duas detecções a mesma mão
-DIST_MAX_MESMA_MAO = 0.15
-
-# Constantes do YOLO (pose das pessoas, usada para localizar as mãos no test_crop.py)
-# Os pesos pré-treinados já são treinados no COCO-Pose (17 keypoints do corpo), sem necessidade de treino
-YOLO_PERSON_MODEL_PATH = YOLO_MODELO_BASE
-# Índices dos keypoints do COCO-Pose (lado da pessoa, como no MediaPipe Pose)
-YOLO_POSE_OMBROS = (6, 5)  # ombro direito, ombro esquerdo
-YOLO_POSE_COTOVELOS = {"Right": 8, "Left": 7}
-YOLO_POSE_PULSOS = {"Right": 10, "Left": 9}
-# O COCO-Pose não tem pontos dos dedos: a ponta da mão é estimada prolongando o antebraço
-# (cotovelo -> pulso) a partir do pulso, nesta fração do comprimento do antebraço
-YOLO_POSE_COMPRIMENTO_MAO = 0.75
 
 # Parâmetros de Data Augmentation
 AUG_NOISE_INTENSITY = 0.005
@@ -157,6 +157,9 @@ DATASET_TESTE_15_CSV = "dataset/teste_15.csv"
 
 DATASET_TREINO_MINDS_CROP_CSV = "dataset/treino_minds_crop_mediapipe_separado.csv"
 DATASET_TESTE_MINDS_CROP_CSV = "dataset/teste_minds_crop_mediapipe_separado.csv"
+
+DATASET_TREINO_HOLISTIC_CSV = "dataset/treino_holistic.csv"
+DATASET_TESTE_HOLISTIC_CSV = "dataset/teste_holistic.csv"
 
 LOGS_DIR = "logs"
 MODELS_DIR = "models"
