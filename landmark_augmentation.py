@@ -15,6 +15,8 @@ Transformações:
   2. Escala           — simula distância diferente da câmera
   3. Rotação 2D       — simula ângulo de filmagem diferente (plano XY)
   4. Espelhamento     — inverte X; também troca direita↔esquerda (mãos e pares do Pose)
+  5. Dropout de mão (sequência) — remove a mão menos ativa em toda a sequência
+  6. Dropout de mão (frame)     — remove cada mão em frames aleatórios (AUG_DROPOUT_FRAME_PROB)
 
 Para sequências LSTM os parâmetros aleatórios são pré-gerados uma vez e
 aplicados a todos os frames, garantindo coerência temporal.
@@ -23,6 +25,7 @@ aplicados a todos os frames, garantindo coerência temporal.
 import numpy as np
 
 from utils.constants import (
+    AUG_DROPOUT_FRAME_PROB,
     AUG_NOISE_INTENSITY,
     AUG_ROTATION_MAX_DEGREES,
     AUG_SCALE_MAX,
@@ -89,6 +92,37 @@ def _espelhamento(pts):
     pts[:, 0] = -pts[:, 0]
     return pts
 
+
+# Dropouts de mão: aplicados na sequência inteira (ver _aplicar_dropouts), depois das demais
+# transformações. Só o bloco da mão é zerado (mão não detectada); o Pose é mantido, como
+# acontece nos dados reais, em que o Holistic perde a mão mas continua detectando o corpo.
+
+def _dropout_mao_sequencia(sequencia):
+    """
+    Remove (zera) a mão menos ativa em todos os frames da sequência: a de menor variação das
+    coordenadas nos frames em que aparece. Nos sinais feitos com uma mão é a mão em repouso,
+    então o modelo aprende a não depender da mão não dominante. Sequências com apenas uma
+    mão não são alteradas.
+    """
+    atividade = []
+    for bloco in (MAO_D, MAO_E):
+        mao = sequencia[:, bloco]
+        presentes = ~np.all(np.abs(mao) < 1e-9, axis=(1, 2))
+        if not presentes.any():
+            return sequencia
+        atividade.append(mao[presentes].std(axis=0).mean())
+    sequencia[:, (MAO_D, MAO_E)[int(np.argmin(atividade))]] = 0.0
+    return sequencia
+
+
+def _dropout_mao_frames(sequencia, mascara):
+    """Remove (zera) cada mão nos frames marcados em mascara (n_frames, 2), simulando falhas de detecção."""
+    sequencia[mascara[:, 0], MAO_D] = 0.0
+    sequencia[mascara[:, 1], MAO_E] = 0.0
+    return sequencia
+
+
+DROPOUTS = (_dropout_mao_sequencia, _dropout_mao_frames)
 
 
 # Wrapper para aplicar as transformações
@@ -230,12 +264,19 @@ def augmentar_sequencia(sequencia, transformacoes):
         (n, n_pontos, COORDINATES_PER_LANDMARK)
     ).astype(np.float32)
 
+    # Máscara do dropout por frame sorteada apenas quando usada, para não alterar
+    # os sorteios das demais transformações
+    mascara = None
+    if _dropout_mao_frames in transformacoes:
+        mascara = np.random.random((n, 2)) < AUG_DROPOUT_FRAME_PROB
+
+    geometricas = [t for t in transformacoes if t not in DROPOUTS]
     resultado = []
     for fi, frame in enumerate(sequencia):
         arr = np.array(frame, dtype=np.float32)
         r = _processar_frame(
             arr,
-            transformacoes,
+            geometricas,
             ruido=ruido[fi],
             escala_fator=escala_fator,
             cos_a=cos_a,
@@ -243,19 +284,39 @@ def augmentar_sequencia(sequencia, transformacoes):
         )
         resultado.append(r)
 
+    if any(t in DROPOUTS for t in transformacoes):
+        resultado = _aplicar_dropouts(resultado, transformacoes, mascara)
     return resultado
 
 
-def gerar_amostras_aumentadas(features, labels, grupos, n_aumentos=N_AUMENTOS, seed=SEED):
+def _aplicar_dropouts(resultado, transformacoes, mascara):
+    """Aplica os dropouts de mão escolhidos à sequência já transformada (lista de frames)."""
+    seq = np.array(resultado, dtype=np.float32)
+    pts = seq[:, :NUM_FEATURES_MAOS].reshape(len(seq), -1, COORDINATES_PER_LANDMARK)
+    if _dropout_mao_sequencia in transformacoes:
+        pts = _dropout_mao_sequencia(pts)
+    if _dropout_mao_frames in transformacoes:
+        pts = _dropout_mao_frames(pts, mascara)
+    seq[:, :NUM_FEATURES_MAOS] = pts.reshape(len(seq), -1)
+    return seq.tolist()
+
+
+TRANSFORMACOES = [_ruido, _escala, _rotacao_2d, _dropout_mao_sequencia, _dropout_mao_frames]
+
+
+def gerar_amostras_aumentadas(
+    features, labels, grupos, n_aumentos=N_AUMENTOS, seed=SEED, transformacoes=TRANSFORMACOES
+):
     """
     Gera amostras augmentadas para o dataset inteiro.
     Suporta 126 (apenas mãos) e 142 (Holistic) features automaticamente.
     n_aumentos : augmentações por amostra original.
-        Com n_aumentos=5: 1 espelhamento + 4 combinações = +5 → total 6×.
+        Com n_aumentos=10: 1 espelhamento + 9 combinações = +10 → total 11×.
+    transformacoes : transformações sorteadas nas combinações (o espelhamento é sempre gerado).
     """
     np.random.seed(seed)
 
-    transformacoes_disponiveis = [_ruido, _escala, _rotacao_2d]
+    transformacoes_disponiveis = list(transformacoes)
 
     features_aug = list(features)
     labels_aug = list(labels)

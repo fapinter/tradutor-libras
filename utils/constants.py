@@ -70,8 +70,12 @@ AUG_SCALE_MAX = 1.15
 # Rotação máxima
 AUG_ROTATION_MAX_DEGREES = 15.0
 
+# Probabilidade de cada mão ser removida em cada frame no dropout de mão por frame
+# (simula as falhas de detecção das mãos pelo Holistic)
+AUG_DROPOUT_FRAME_PROB = 0.15
+
 # Número de amostras geradas pelo Data Augmentation
-N_AUMENTOS = 5
+N_AUMENTOS = 10
 
 # Configurações dos Treinamentos
 SEED = 42

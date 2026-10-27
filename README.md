@@ -26,7 +26,7 @@ para uso posterior.
 **`extracao_frames.py`** — Realiza o processamento dos vídeos dos datasets, capturando seus frames, salvos no diretório
 `dataset/frames/{treinamento|teste}/{gesto}/{id_video}/{id_frame}.jpg`.
 
-**`landmark_augmentation.py`** — Aplica transformações geométricas nos vetores de landmarks sem reprocessar imagens: ruído gaussiano (σ=0,005), escala uniforme (±15%), rotação 2D (±15°) e espelhamento horizontal. Os parâmetros aleatórios são pré-gerados uma vez e aplicados igualmente a todos os frames, preservando a coerência temporal. O espelhamento também troca direita e esquerda (mãos e pontos do Pose). Suporta os datasets apenas das mãos (126 features) e os do Holistic (142 features); detalhes em `docs/augmentation.md`.
+**`landmark_augmentation.py`** — Aplica transformações nos vetores de landmarks sem reprocessar imagens: ruído gaussiano (σ=0,005), escala uniforme (±15%), rotação 2D (±15°), espelhamento horizontal e dropout de mão (a mão menos ativa na sequência inteira, ou cada mão em 15% dos frames). Para cada amostra são geradas `N_AUMENTOS` variações: o espelho e `N_AUMENTOS - 1` combinações sorteadas das demais transformações. Os parâmetros aleatórios são pré-gerados uma vez e aplicados igualmente a todos os frames, preservando a coerência temporal. O espelhamento também troca direita e esquerda (mãos e pontos do Pose). Suporta os datasets apenas das mãos (126 features) e os do Holistic (142 features); detalhes em `docs/augmentation.md`.
 
 **`utils/`** - Diretório contendo constantes do projeto, e funções auxiliares para o pipeline.
 
