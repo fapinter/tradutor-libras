@@ -82,6 +82,10 @@ LSTM_PATIENCE = 10
 PIPELINE_PATIENCE = 8
 
 K_FOLDS = 5
+
+# Os vídeos de treino (MINDS) estão em blocos de 5 repetições por intérprete:
+# 01-05 = intérprete 1, 06-10 = intérprete 2, ..., 36-40 = intérprete 8
+VIDEOS_POR_INTERPRETE = 5
 EPOCHS_POR_FOLD = 50
 USAR_AUGMENTATION = True
 
@@ -166,6 +170,9 @@ RELATORIO_AVALIACAO_TESTE = "outputs/relatorio_avaliacao_teste.txt"
 MATRIZ_PATH = "outputs/matriz_%s.png"
 RESULTS_PATH = "outputs/results_%s.txt"
 ACC_PATH = "outputs/acc_%s.png"
+LOSS_PATH = "outputs/loss_%s.png"
+# Predição de cada amostra do teste (colunas id, predicao, diagnostico)
+PREDICOES_PATH = "outputs/predicoes_%s.csv"
 
 # Métricas do melhor treino de cada modelo (f1-macro e acurácia, em %)
 BEST_PATH = "best/%s.txt"

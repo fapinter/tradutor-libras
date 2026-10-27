@@ -8,6 +8,7 @@ Métricas de Avaliação:
 """
 
 # Biblotecas externas utilizadas
+import csv
 import pickle
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,6 +41,7 @@ from utils.tqdm import tqdm_joblib
 from utils.utils import (
     _salvar_log_treino,
     eh_melhor_treino,
+    interprete_do_video,
     salvar_melhores_metricas
 )
 from utils.kmeans import criar_pipeline_kmeans
@@ -58,6 +60,8 @@ from utils.constants import (
     KERAS_PATH,
     PICKLE_PATH,
     ACC_PATH,
+    LOSS_PATH,
+    PREDICOES_PATH,
     N_AUMENTOS,
     PARAM_GRID_KMEANS,
     PARAM_GRID_RF,
@@ -111,6 +115,7 @@ def splitTrainValidation(x_fit, y_fit, groups_fit):
     overlap = set(groups_train).intersection(set(groups_val))
     if overlap:
         raise ValueError(f'Overlap entre grupos de Treino e Validação: {overlap}')    
+    print(f"Grupos no treino: {sorted(set(groups_train.tolist()))} | na validação: {sorted(set(groups_val.tolist()))}")
 
     return x_train, y_train, groups_train, x_val, y_val, groups_val
     
@@ -174,13 +179,14 @@ def applyGridSearch(
 
 def avaliar_modelo_teste(
     model_name, model, best_params,
-    label_encoder, X_test, y_test,
+    label_encoder, X_test, y_test, groups_test, sample_ids_test,
     n_amostras_treino, n_aumentos, augmentation,
     time, usa_predict_proba=True,
 ):
     """
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
-    e gera a Matriz de Confusão da predição do modelo.
+    e gera a Matriz de Confusão da predição do modelo, o CSV com a predição de cada
+    amostra do teste e, para redes neurais, os gráficos de acurácia e loss por época.
 
     Os arquivos em outputs/ só são sobrescritos se o treino superar o melhor treino salvo
     em best/<model_name>.txt (ver eh_melhor_treino). O log em logs/ é gravado sempre.
@@ -237,6 +243,16 @@ def avaliar_modelo_teste(
         file_.write("\nRelatório de Classificação por Classe:\n")
         file_.write(report_text)
 
+    # Salva a predição de cada amostra do teste em outputs/
+    # id = {nome_gesto}_{id_video}_{sample_idx}
+    predicoes_path = PREDICOES_PATH % model_name
+    with open(predicoes_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['id', 'predicao', 'diagnostico'])
+        for video_id, sample_idx, gesto_real, gesto_previsto in zip(groups_test, sample_ids_test, y_test, y_pred_str):
+            diagnostico = 'certo' if gesto_previsto == gesto_real else 'errado'
+            writer.writerow([f'{video_id}_{sample_idx}', gesto_previsto, diagnostico])
+
     # Gerar e salvar Matriz de Confusão
     try:
         cm = confusion_matrix(y_test, y_pred_str, labels=label_encoder.classes_)
@@ -287,9 +303,46 @@ def avaliar_modelo_teste(
             plt.grid(True, linestyle='--', alpha=0.6)
             plt.tight_layout()
             plt.savefig(acc_path, dpi=150, bbox_inches="tight")
+            plt.close()
 
     except Exception as e:
         print(f"[AVISO] Não foi possível salvar gráfico da acurácia da rede: {e}")
+
+    try:
+        if epoca_parada:
+            loss_path = LOSS_PATH % model_name
+            history = model.history_
+
+            epocas = range(1, len(history['loss']) + 1)
+            ultima_epoca = len(epocas)
+            # Época restaurada pelo EarlyStopping (restore_best_weights=True)
+            melhor_epoca = int(np.argmin(history['val_loss'])) + 1
+
+            plt.figure(figsize=(10, 6))
+
+            plt.plot(epocas, history['loss'], label='Loss no Treino', marker='o', color='#1f77b4', linewidth=2)
+            plt.plot(epocas, history['val_loss'], label='Loss na Validação', marker='s', color='#ff7f0e', linewidth=2)
+
+            plt.axvline(
+                x=melhor_epoca, color='green', linestyle='--',
+                label=f'Menor Loss na Validação (Época {melhor_epoca})'
+            )
+            plt.axvline(
+                x=ultima_epoca, color='red', linestyle=':',
+                label=f'Early Stopping (Época {ultima_epoca})'
+            )
+
+            plt.title('Análise de Overfitting: Loss Treino vs Validação (Melhor Modelo)', fontsize=14)
+            plt.xlabel('Épocas', fontsize=12)
+            plt.ylabel('Loss (Sparse Categorical Crossentropy)', fontsize=12)
+            plt.legend(loc='upper right', fontsize=11)
+            plt.grid(True, linestyle='--', alpha=0.6)
+            plt.tight_layout()
+            plt.savefig(loss_path, dpi=150, bbox_inches="tight")
+            plt.close()
+
+    except Exception as e:
+        print(f"[AVISO] Não foi possível salvar gráfico da loss da rede: {e}")
 
     return True, f1_pct, acc_pct
 
@@ -329,7 +382,11 @@ if __name__ == "__main__":
     
     # Coleta dos dados no dtype=np.float32
     X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_CSV)
-    X_test, y_test, groups_test = import_from_csv(DATASET_TESTE_CSV)
+    X_test, y_test, groups_test, sample_ids_test = import_from_csv(DATASET_TESTE_CSV, retornar_sample_idx=True)
+
+    # Grupos do treino passam a ser o intérprete (e não o vídeo), garantindo que validação
+    # e folds do GridSearch tenham apenas intérpretes não vistos no treino
+    groups_train = np.array([interprete_do_video(video_id) for video_id in groups_train])
 
     # Separação dos dados de treino e validação
     X_train_reduzido, y_train_reduzido, groups_train_reduzido, X_val, y_val, groups_val = splitTrainValidation(
@@ -449,6 +506,8 @@ if __name__ == "__main__":
                 label_encoder=label_encoder,
                 X_test=X_test,
                 y_test=y_test,
+                groups_test=groups_test,
+                sample_ids_test=sample_ids_test,
                 n_amostras_treino=x_fit.shape[0],
                 n_aumentos=N_AUMENTOS,
                 augmentation=usar_augmentation,

@@ -277,11 +277,12 @@ def extract_features_from_directory(
     df.to_csv(output_path, index=False)
     print(f"Dataset exportado: {output_path}")
 
-def import_from_csv(filepath: str):
+def import_from_csv(filepath: str, retornar_sample_idx: bool = False):
     """
     Carrega o dataset a partir de um CSV no formato 3D para o modelo LSTM: (amostras, frames, features).
     Retorna 3 arrays features (amostras do dataset), labels (labels de cada amostra), 
     groups (video ao qual pertence a amostra).
+    Com retornar_sample_idx=True, retorna também o sample_idx (id da amostra no CSV) de cada amostra.
     """
     df = pd.read_csv(filepath)
 
@@ -294,9 +295,10 @@ def import_from_csv(filepath: str):
     features = np.zeros((num_samples, num_frames, num_features))
     labels = []
     groups = []
+    sample_ids = []
 
 
-    for i, (_, df_sample) in enumerate(df.groupby("sample_idx", sort=False)):
+    for i, (sample_idx, df_sample) in enumerate(df.groupby("sample_idx", sort=False)):
         df_sample = df_sample.sort_values(by="frame_idx")
 
         landmarks_matrix = df_sample[feature_cols].values
@@ -306,10 +308,13 @@ def import_from_csv(filepath: str):
         labels.append(sample_label)
 
         groups.append(df_sample["video_id"].iloc[0])
+        sample_ids.append(sample_idx)
 
     labels = np.array(labels)
     groups = np.array(groups)
 
+    if retornar_sample_idx:
+        return features.astype(np.float32), labels, groups, np.array(sample_ids)
     return features.astype(np.float32), labels, groups
 
 

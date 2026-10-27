@@ -2,7 +2,16 @@ import csv
 import os
 from datetime import datetime
 
-from utils.constants import BEST_DIR, BEST_PATH, RESULTADOS_TREINO_CSV, ZEROS_MAO
+from utils.constants import BEST_DIR, BEST_PATH, RESULTADOS_TREINO_CSV, VIDEOS_POR_INTERPRETE, ZEROS_MAO
+
+
+def interprete_do_video(video_id):
+    """
+    Retorna o número do intérprete do vídeo a partir do video_id ({nome_gesto}_{id_video}).
+    Usado como grupo nos splits, para um mesmo intérprete não estar no treino e na validação.
+    """
+    id_video = int(video_id.rsplit('_', 1)[-1])
+    return (id_video - 1) // VIDEOS_POR_INTERPRETE + 1
 
 
 def normalizar_mao(hand_landmarks):

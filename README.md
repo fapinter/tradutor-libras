@@ -42,7 +42,7 @@ vidos (80MB cada, ~60GB o dataset como um todo)
 **`dataset/frames`** — Frames extraídos dos vídeos, separados no subdiretório `treinamento e teste`. Cada vídeo gera uma subpasta numerada (`01`,`02`,`03`, ...) dentro da pasta do gesto correspondente, não adicionados ao repositório devido ao tamanho total de todos os frames (6 a 7 GB).
 
 
-**`dataset/(treinamento|teste).csv`** — Dataset de features em 3D. Colunas: `target`(Nome do gesto), `video_id`(ID do vídeo, usado para definir grupos), `sample_idx` (índice da sequência), `frame_idx` (posição dentro da sequência) + 126 colunas de coordenadas + `duplicado` (Booleano se o frame foi duplicado ou não).
+**`dataset/(treinamento|teste).csv`** — Dataset de features em 3D. Colunas: `target`(Nome do gesto), `video_id`(ID do vídeo, `{gesto}_{id_video}`; no `pipeline.py` é convertido no intérprete, `(id_video - 1) // 5 + 1`, usado como grupo no split de validação e no GridSearch), `sample_idx` (índice da sequência), `frame_idx` (posição dentro da sequência) + 126 colunas de coordenadas + `duplicado` (Booleano se o frame foi duplicado ou não).
 
 ---
 
@@ -64,7 +64,9 @@ vidos (80MB cada, ~60GB o dataset como um todo)
 geradas, quantidade de frames duplicado, quantidade de vídeos com padding e quantidade de frames de padding no gesto. 
 
 **`outputs/`** — Diretório contendo os relatórios dos resultados do treinamento dos modelos, como matrizes
-de confusão e results_{model} mostrando as métricas do modelo treinado.
+de confusão e results_{model} mostrando as métricas do modelo treinado. Também contém `predicoes_{model}.csv`,
+com a predição de cada amostra do teste (colunas `id` = `{nome_gesto}_{id_video}_{sample_idx}`, `predicao` e `diagnostico` = `certo|errado`),
+e, para as redes neurais (LSTM e TCN), os gráficos `acc_{model}.png` e `loss_{model}.png` de treino vs validação por época.
 
 **`best/<modelo>.txt`** — Métricas do melhor treino de cada modelo (`f1-macro` na primeira linha e `acuracia` na segunda, em %). Ao fim de cada treino, o `pipeline.py` só substitui o modelo em `models/` e os arquivos em `outputs/` se o novo treino tiver F1-Macro maior (acurácia como desempate).
 
