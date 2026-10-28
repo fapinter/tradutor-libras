@@ -70,6 +70,8 @@ from utils.constants import (
     PARAM_GRID_XGBOOST,
     DATASET_TREINO_CSV,
     DATASET_TESTE_CSV,
+    DATASET_TREINO_HOLISTIC_CSV,
+    DATASET_TESTE_HOLISTIC_CSV,
     DATASET_TREINO_15_CSV,
     DATASET_TESTE_15_CSV,
     DATASET_TREINO_MINDS_CSV,
@@ -351,12 +353,12 @@ if __name__ == "__main__":
 
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation, Número de Execuções
-        ('lstm:final', PARAM_GRID_LSTM,  False, 4),
-        ('lstm:final_aug', PARAM_GRID_LSTM, True, 4),
+        ('lstm:pose_aug', PARAM_GRID_LSTM, True, 4),
+        ('lstm:pose', PARAM_GRID_LSTM,  False, 4),
         #('tcn:final_aug', PARAM_GRID_TCN,  True, 3),
         #('tcn:final', PARAM_GRID_TCN,  False, 3),
-        #('rf:final_aug', PARAM_GRID_RF,  True, 4),
-        #('rf:final', PARAM_GRID_RF,  False, 4),
+        #('rf:pose_aug', PARAM_GRID_RF,  True, 4),
+        #('rf:pose', PARAM_GRID_RF,  False, 4),
         #('kmeans:final_aug', PARAM_GRID_KMEANS, True, 4),
         #('kmeans:final', PARAM_GRID_KMEANS, False, 4),
         #('xgboost:final_aug', PARAM_GRID_XGBOOST, True, 4),
@@ -381,8 +383,8 @@ if __name__ == "__main__":
     # Dataset é definido aqui, não possui opção de mudar
     
     # Coleta dos dados no dtype=np.float32
-    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_CSV)
-    X_test, y_test, groups_test, sample_ids_test = import_from_csv(DATASET_TESTE_CSV, retornar_sample_idx=True)
+    X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_HOLISTIC_CSV)
+    X_test, y_test, groups_test, sample_ids_test = import_from_csv(DATASET_TESTE_HOLISTIC_CSV, retornar_sample_idx=True)
 
     # Grupos do treino passam a ser o intérprete (e não o vídeo), garantindo que validação
     # e folds do GridSearch tenham apenas intérpretes não vistos no treino
@@ -448,7 +450,7 @@ if __name__ == "__main__":
                     # os treinamentos
                     early_stopping = EarlyStopping(
                         monitor="val_loss",
-                        patience=10,
+                        patience=20,
                         restore_best_weights=True
                     )
                     cleanup_cb = MemoryCleanupCallback()
@@ -468,7 +470,7 @@ if __name__ == "__main__":
                 case "tcn":
                     early_stopping = EarlyStopping(
                         monitor="val_loss",
-                        patience=10,
+                        patience=20,
                         restore_best_weights=True
                     )
                     cleanup_cb = MemoryCleanupCallback()
