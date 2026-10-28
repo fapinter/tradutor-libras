@@ -51,6 +51,7 @@ from utils.xgboost import (
 )
 from utils.lstm_tcn import(
     create_lstm_model,
+    create_bilstm_model,
     create_tcn_model
 )
 from utils.constants import (
@@ -77,6 +78,7 @@ from utils.constants import (
     DATASET_TREINO_MINDS_CROP_CSV,
     DATASET_TESTE_MINDS_CROP_CSV,
 )
+
 
 class MemoryCleanupCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
@@ -108,18 +110,17 @@ def splitTrainValidation(x_fit, y_fit, groups_fit):
     y_train = y_fit[train_idx]
     groups_train = groups_fit[train_idx]
 
-    x_val = x_fit[val_idx]    
-    y_val = y_fit[val_idx]    
+    x_val = x_fit[val_idx]
+    y_val = y_fit[val_idx]
     groups_val = groups_fit[val_idx]
 
     overlap = set(groups_train).intersection(set(groups_val))
     if overlap:
-        raise ValueError(f'Overlap entre grupos de Treino e Validação: {overlap}')    
+        raise ValueError(f'Overlap entre grupos de Treino e Validação: {overlap}')
     print(f"Grupos no treino: {sorted(set(groups_train.tolist()))} | na validação: {sorted(set(groups_val.tolist()))}")
 
     return x_train, y_train, groups_train, x_val, y_val, groups_val
-    
-    
+
 
 def applyGridSearch(
     model_used, params, scoring_method,
@@ -176,7 +177,6 @@ def applyGridSearch(
     return grid.best_estimator_, grid.best_params_, grid.best_score_
 
 
-
 def avaliar_modelo_teste(
     model_name, model, best_params,
     label_encoder, X_test, y_test, groups_test, sample_ids_test,
@@ -195,7 +195,6 @@ def avaliar_modelo_teste(
     """
     matriz_path = MATRIZ_PATH % model_name
     results_path = RESULTS_PATH % model_name
-
 
     # Realiza as predições do modelo
     if usa_predict_proba:
@@ -222,7 +221,7 @@ def avaliar_modelo_teste(
         epoca_parada = None
     _salvar_log_treino(
         model_name, acc, f1_mac,
-        n_amostras_treino, augmentation, n_aumentos, 
+        n_amostras_treino, augmentation, n_aumentos,
         str(best_params.items()), minutos_treino, epoca_parada
     )
 
@@ -275,26 +274,26 @@ def avaliar_modelo_teste(
         if epoca_parada:
             acc_path = ACC_PATH % model_name
             history = model.history_
-            
+
             # Identificar chaves de acurácia compatíveis com a versão do TensorFlow
             acc_key = 'accuracy' if 'accuracy' in history else 'acc'
             val_acc_key = 'val_accuracy' if 'val_accuracy' in history else 'val_acc'
             # Definir o eixo X (épocas)
             epocas = range(1, len(history[acc_key]) + 1)
             ultima_epoca = len(epocas)
-            
+
             # Criar o gráfico
             plt.figure(figsize=(10, 6))
-            
+
             plt.plot(epocas, history[acc_key], label='Acurácia no Treino', marker='o', color='#1f77b4', linewidth=2)
             plt.plot(epocas, history[val_acc_key], label='Acurácia na Validação', marker='s', color='#ff7f0e', linewidth=2)
-            
+
             # Adicionar uma linha vertical marcando onde o Early Stopping atuou
             plt.axvline(
-                x=ultima_epoca, color='red', linestyle=':', 
+                x=ultima_epoca, color='red', linestyle=':',
                 label=f'Early Stopping (Época {ultima_epoca})'
             )
-            
+
             # Estilização
             plt.title('Análise de Overfitting: Treino vs Validação (Melhor Modelo)', fontsize=14)
             plt.xlabel('Épocas', fontsize=12)
@@ -353,6 +352,8 @@ if __name__ == "__main__":
         # Modelo, Hiperparametros, Path binário, Usar Augmentation, Número de Execuções
         ('lstm:final', PARAM_GRID_LSTM,  False, 4),
         ('lstm:final_aug', PARAM_GRID_LSTM, True, 4),
+        ('bilstm:final', PARAM_GRID_LSTM, False, 4),
+        ('bilstm:final_aug', PARAM_GRID_LSTM, True, 4),
         #('tcn:final_aug', PARAM_GRID_TCN,  True, 3),
         #('tcn:final', PARAM_GRID_TCN,  False, 3),
         #('rf:final_aug', PARAM_GRID_RF,  True, 4),
@@ -366,20 +367,20 @@ if __name__ == "__main__":
     has_network = False
     has_classifier = False
     for model_name, _, _, _ in models:
-        if model_name.startswith('lstm') or model_name.startswith('tcn'):
+        if model_name.startswith('lstm') or model_name.startswith('bilstm') or model_name.startswith('tcn'):
             has_network = True
         elif model_name.startswith('kmeans') or model_name.startswith('xgboost') or model_name.startswith('rf'):
             has_classifier = True
 
         if has_network and has_classifier:
             print('[ERRO] Não é permitido o treinamento de Kmeans e LSTM juntos\nFaça o treinamento em execuções diferentes')
-            sys.exit(1) 
+            sys.exit(1)
     if has_network:
         TREINAR_REDE = True
     else:
         TREINAR_REDE = False
     # Dataset é definido aqui, não possui opção de mudar
-    
+
     # Coleta dos dados no dtype=np.float32
     X_train, y_train, groups_train = import_from_csv(DATASET_TREINO_CSV)
     X_test, y_test, groups_test, sample_ids_test = import_from_csv(DATASET_TESTE_CSV, retornar_sample_idx=True)
@@ -429,16 +430,16 @@ if __name__ == "__main__":
                 x_fit, y_fit, group_fit = X_train_reduzido, y_train_reduzido_encoded, groups_train_reduzido
             else:
                 x_fit, y_fit, group_fit = X_train, y_train_encoded, groups_train
-        
+
         input_shape = (x_fit.shape[1], x_fit.shape[2])
         print("Shape fit: ", x_fit.shape, y_fit.shape, group_fit.shape)
         print("dtype X fit: ", x_fit.dtype)
         model_to_create = model_name.split(':')[0]
-        eh_modelo_keras = model_to_create in ("lstm", "tcn")
+        eh_modelo_keras = model_to_create in ("lstm", "bilstm", "tcn")
         for exec in range(n_execucoes):
             tf.keras.backend.clear_session()
             gc.collect()
-            
+
             seed_exec = 42 + exec
             print(f"\n[{model_to_create}] Na execução {exec+1}/{n_execucoes+1}")
             match(model_to_create):
@@ -454,6 +455,20 @@ if __name__ == "__main__":
                     cleanup_cb = MemoryCleanupCallback()
                     model = KerasClassifier(
                         model=create_lstm_model,
+                        model__input_shape=input_shape,
+                        model__num_classes=num_labels,
+                        verbose=0,
+                        callbacks=[early_stopping, cleanup_cb]
+                    )
+                case "bilstm":
+                    early_stopping = EarlyStopping(
+                        monitor="val_loss",
+                        patience=10,
+                        restore_best_weights=True
+                    )
+                    cleanup_cb = MemoryCleanupCallback()
+                    model = KerasClassifier(
+                        model=create_bilstm_model,
                         model__input_shape=input_shape,
                         model__num_classes=num_labels,
                         verbose=0,
@@ -478,7 +493,7 @@ if __name__ == "__main__":
                         model__num_classes=num_labels,
                         verbose=0,
                         callbacks=[early_stopping, cleanup_cb]
-                    )    
+                    )
                 case _:
                     pass
 
