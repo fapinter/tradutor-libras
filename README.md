@@ -18,7 +18,8 @@ Esta seção descreve todos os arquivos e diretórios do projeto, seu papel e, q
 **`test_crop.py`** e **`tests_extraction.py`** — Extrações experimentais anteriores, apenas das mãos (126 features, normalizadas pelo pulso): com recortes das mãos localizadas pelo MediaPipe Pose e com o HandLandmarker na imagem inteira, respectivamente.
 
 **`pipeline.py`** — Pipeline de treinamento dos modelos, coleta os dados de treino e teste, separa o treino entre
-treino e validação, aplica Data Augmentation nos dados de treino, depois treina os modelos inseridos na lista usando
+treino e validação (a validação, usada no Early Stopping das redes e sem augmentation, recebe os intérpretes
+de `INTERPRETES_VALIDACAO`, atualmente o 5 e o 8), aplica Data Augmentation nos dados de treino, depois treina os modelos inseridos na lista usando
 **GridSearchCV**, para garantir os melhores hiperparâmetros para os dados utilizados, por fim os modelos são avaliados
 no conjunto de teste, análises do seu desempenho são armazenados em `outputs/` e os modelos são armazenados em disco
 para uso posterior.

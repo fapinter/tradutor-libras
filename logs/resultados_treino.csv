@@ -1,4 +1,4 @@
-data_hora,modelo,acuracia_%,f1_macro_%,amostras_treino,augmentation,n_aumentos,tempo_min,epoca_parada,hiperparametros
+data_hora,modelo,acuracia_%,f1_macro_%,amostras_treino,augmentation,n_aumentos,epoca_parada,tempo_min,hiperparametros
 2026-10-01 17:31:43,kmeans_minds_aug,60.43,60.49,5622,sim,5
 2026-10-01 17:32:44,kmeans_minds,60.43,60.11,937,nao,0
 2026-10-01 18:26:21,lstm_minds,93.50,93.21,937,nao,0

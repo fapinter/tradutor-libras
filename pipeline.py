@@ -63,6 +63,7 @@ from utils.constants import (
     LOSS_PATH,
     PREDICOES_PATH,
     N_AUMENTOS,
+    INTERPRETES_VALIDACAO,
     PARAM_GRID_KMEANS,
     PARAM_GRID_RF,
     PARAM_GRID_LSTM,
@@ -92,19 +93,15 @@ class MemoryCleanupCallback(Callback):
 
 def splitTrainValidation(x_fit, y_fit, groups_fit):
     """
-    Separa dados de treino dos dados de teste para aplicar
-    o EarlyStopping no GridSearch corretamente
+    Separa dados de treino dos dados de validação para aplicar
+    o EarlyStopping no GridSearch corretamente.
+    A validação recebe os intérpretes de INTERPRETES_VALIDACAO (groups_fit = intérprete),
+    sem augmentation; os demais ficam no treino.
     """
-    cv = StratifiedGroupKFold(
-        n_splits=5,
-        shuffle=True,
-        random_state=42
-    )
-
-    X_dummy = np.zeros(len(y_fit))
-    train_idx, val_idx = next(
-        cv.split(X_dummy, y_fit, groups=groups_fit)
-    )
+    eh_validacao = np.isin(groups_fit, INTERPRETES_VALIDACAO)
+    if set(groups_fit[eh_validacao].tolist()) != set(INTERPRETES_VALIDACAO):
+        raise ValueError(f'Intérpretes de validação {INTERPRETES_VALIDACAO} ausentes nos grupos do treino')
+    train_idx, val_idx = np.where(~eh_validacao)[0], np.where(eh_validacao)[0]
 
     x_train = x_fit[train_idx]
     y_train = y_fit[train_idx]
@@ -173,7 +170,7 @@ def applyGridSearch(
     total_fits = len(list(ParameterGrid(params))) * 5
 
     # Barra de progresso do treinamento
-    with tqdm_joblib(tqdm(desc="Treinando GridSearchCV", total=total_fits)):
+    with tqdm_joblib(tqdm(desc="Treinando GridSearchCV\n", total=total_fits)):
         grid.fit(X_fit, y_fit, groups=groups)
     return grid.best_estimator_, grid.best_params_, grid.best_score_
 
@@ -184,11 +181,16 @@ def avaliar_modelo_teste(
     label_encoder, X_test, y_test, groups_test, sample_ids_test,
     n_amostras_treino, n_aumentos, augmentation,
     time, usa_predict_proba=True,
+    X_val=None, y_val=None, f1_validacao_cruzada=None,
 ):
     """
     Realiza o Teste do Modelo, coleta as Métricas (F1-Score Macro e Acurácia Geral)
     e gera a Matriz de Confusão da predição do modelo, o CSV com a predição de cada
     amostra do teste e, para redes neurais, os gráficos de acurácia e loss por época.
+
+    X_val, y_val (encoded): conjunto de validação (intérpretes de INTERPRETES_VALIDACAO), avaliado
+    apenas nas redes neurais; os demais modelos treinam com todos os intérpretes e não têm validação
+    separada. f1_validacao_cruzada: melhor F1-Macro médio dos folds do GridSearch (best_score_).
 
     Os arquivos em outputs/ só são sobrescritos se o treino superar o melhor treino salvo
     em best/<model_name>.txt (ver eh_melhor_treino). O log em logs/ é gravado sempre.
@@ -216,6 +218,17 @@ def avaliar_modelo_teste(
     f1_mac = f1_score(y_test_encoded, y_pred, average="macro", zero_division=0)
     report_text = str(classification_report(y_test, y_pred_str, zero_division=0, output_dict=False))
     minutos_treino = time/60
+
+    # Métricas na validação, com os pesos restaurados pelo Early Stopping
+    acc_val = f1_val = None
+    if X_val is not None:
+        if usa_predict_proba:
+            y_val_pred = np.argmax(model.predict_proba(X_val, verbose=0), axis=1)
+        else:
+            y_val_pred = model.predict(X_val)
+        acc_val = accuracy_score(y_val, y_val_pred)
+        f1_val = f1_score(y_val, y_val_pred, average="macro", zero_division=0)
+        print(f"Validação | Acurácia: {acc_val * 100:.2f}% | F1-Macro: {f1_val * 100:.2f}%")
     print(f"Tempo total de Treino: {minutos_treino:.4f} minutos | {time/3600:.4f} horas")
 
     if usa_predict_proba:
@@ -235,12 +248,18 @@ def avaliar_modelo_teste(
         return False, f1_pct, acc_pct
 
     # Salva resultados em outputs/
-    with open(results_path, 'w') as file_:
+    with open(results_path, 'w', encoding='utf-8') as file_:
         file_.write(f"Total de Amostras de Teste: {len(y_test)}\n")
         file_.write(f"Acurácia no Teste: {acc * 100:.2f}%\n")
         file_.write(f"F1-Score Macro:             {f1_mac * 100:.2f}%\n")
+        if X_val is not None:
+            file_.write(f"Total de Amostras de Validação: {len(y_val)} (intérpretes {', '.join(map(str, INTERPRETES_VALIDACAO))})\n")
+            file_.write(f"Acurácia na Validação: {acc_val * 100:.2f}%\n")
+            file_.write(f"F1-Score Macro na Validação: {f1_val * 100:.2f}%\n")
+        if f1_validacao_cruzada is not None:
+            file_.write(f"F1-Score Macro médio na validação cruzada do GridSearch: {f1_validacao_cruzada * 100:.2f}%\n")
         file_.write(f"Tempo total de Treino: {time/60:.4f} minutos | {time/3600:.4f} horas\n")
-        file_.write(f"Época parada: {epoca_parada}")
+        file_.write(f"Época parada: {epoca_parada}\n")
         file_.write(f"Hiperparametros do {model_name}: {best_params.items()}")
         file_.write("\nRelatório de Classificação por Classe:\n")
         file_.write(report_text)
@@ -442,7 +461,7 @@ if __name__ == "__main__":
             gc.collect()
             
             seed_exec = 42 + exec
-            print(f"\n[{model_to_create}] Na execução {exec+1}/{n_execucoes+1}")
+            print(f"\n[{model_to_create}] Na execução {exec+1}/{n_execucoes}")
             match(model_to_create):
                 case "lstm":
                     # Configuração de Early Stopping para evitar
@@ -514,7 +533,10 @@ if __name__ == "__main__":
                 n_aumentos=N_AUMENTOS,
                 augmentation=usar_augmentation,
                 usa_predict_proba=eh_modelo_keras,
-                time=end_time
+                time=end_time,
+                X_val=X_val if eh_modelo_keras else None,
+                y_val=y_val_encoded if eh_modelo_keras else None,
+                f1_validacao_cruzada=best_score,
             )
             # Substitui o modelo em models/ apenas quando o treino supera o melhor já salvo
             if melhor_treino:

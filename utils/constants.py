@@ -90,6 +90,10 @@ K_FOLDS = 5
 # Os vídeos de treino (MINDS) estão em blocos de 5 repetições por intérprete:
 # 01-05 = intérprete 1, 06-10 = intérprete 2, ..., 36-40 = intérprete 8
 VIDEOS_POR_INTERPRETE = 5
+# Intérpretes separados para a validação (Early Stopping), sem augmentation.
+# O 8 tem as duas mãos visíveis na maior parte dos frames e o 5 deixa a mão de apoio solta,
+# como a maioria; o 7, o outro com as duas mãos visíveis, fica no treino.
+INTERPRETES_VALIDACAO = (5, 8)
 EPOCHS_POR_FOLD = 50
 USAR_AUGMENTATION = True
 
