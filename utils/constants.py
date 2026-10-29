@@ -81,9 +81,9 @@ N_AUMENTOS = 10
 SEED = 42
 LSTM_EPOCHS = 100
 
-# Paciencia Early Stopping (avaliar qual ficará)
-LSTM_PATIENCE = 10
-PIPELINE_PATIENCE = 8
+# Paciência do Early Stopping das redes (LSTM e TCN), que monitora o F1-Macro da validação:
+# o F1 continua subindo por ~30-40 épocas, enquanto a val_loss atinge o mínimo por volta da época 5
+EARLY_STOPPING_PATIENCE = 50
 
 K_FOLDS = 5
 

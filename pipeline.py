@@ -64,6 +64,7 @@ from utils.constants import (
     PREDICOES_PATH,
     N_AUMENTOS,
     INTERPRETES_VALIDACAO,
+    EARLY_STOPPING_PATIENCE,
     PARAM_GRID_KMEANS,
     PARAM_GRID_RF,
     PARAM_GRID_LSTM,
@@ -89,6 +90,37 @@ class MemoryCleanupCallback(Callback):
     def on_train_end(self, logs=None):
         tf.keras.backend.clear_session()
         gc.collect()
+
+
+class F1MacroValidacao(Callback):
+    """
+    Calcula o F1-Macro na validação ao fim de cada época e o registra nos logs como 'val_f1_macro',
+    para o EarlyStopping monitorá-lo (o Keras não calcula F1). Deve vir antes do EarlyStopping
+    na lista de callbacks.
+    """
+    def __init__(self, X_val, y_val):
+        super().__init__()
+        self.X_val = X_val
+        self.y_val = y_val
+
+    def on_epoch_end(self, epoch, logs=None):
+        y_pred = np.argmax(self.model.predict(self.X_val, verbose=0, batch_size=256), axis=1)
+        logs["val_f1_macro"] = f1_score(self.y_val, y_pred, average="macro", zero_division=0)
+
+
+def criar_callbacks_rede(X_val, y_val):
+    """
+    Callbacks do treinamento das redes (LSTM e TCN): Early Stopping pelo F1-Macro da validação
+    (a mesma métrica do GridSearch), restaurando os pesos da melhor época. A val_loss não é usada
+    porque atinge o mínimo cedo (~época 5) e sobe enquanto o F1 da validação e do teste ainda melhoram.
+    """
+    early_stopping = EarlyStopping(
+        monitor="val_f1_macro",
+        mode="max",
+        patience=EARLY_STOPPING_PATIENCE,
+        restore_best_weights=True
+    )
+    return [F1MacroValidacao(X_val, y_val), early_stopping, MemoryCleanupCallback()]
 
 
 def splitTrainValidation(x_fit, y_fit, groups_fit):
@@ -155,7 +187,7 @@ def applyGridSearch(
     )
 
     if usa_validation_data:
-        n_jobs = 6
+        n_jobs = 8
     else:
         n_jobs = -1
 
@@ -309,7 +341,15 @@ def avaliar_modelo_teste(
             
             plt.plot(epocas, history[acc_key], label='Acurácia no Treino', marker='o', color='#1f77b4', linewidth=2)
             plt.plot(epocas, history[val_acc_key], label='Acurácia na Validação', marker='s', color='#ff7f0e', linewidth=2)
-            
+            # F1-Macro da validação, monitorado pelo Early Stopping
+            if 'val_f1_macro' in history:
+                plt.plot(epocas, history['val_f1_macro'], label='F1-Macro na Validação', marker='^', color='#2ca02c', linewidth=2)
+                melhor_epoca = int(np.argmax(history['val_f1_macro'])) + 1
+                plt.axvline(
+                    x=melhor_epoca, color='green', linestyle='--',
+                    label=f'Maior F1-Macro na Validação (Época {melhor_epoca})'
+                )
+
             # Adicionar uma linha vertical marcando onde o Early Stopping atuou
             plt.axvline(
                 x=ultima_epoca, color='red', linestyle=':', 
@@ -319,7 +359,7 @@ def avaliar_modelo_teste(
             # Estilização
             plt.title('Análise de Overfitting: Treino vs Validação (Melhor Modelo)', fontsize=14)
             plt.xlabel('Épocas', fontsize=12)
-            plt.ylabel('Acurácia', fontsize=12)
+            plt.ylabel('Acurácia / F1-Macro', fontsize=12)
             plt.legend(loc='lower right', fontsize=11)
             plt.grid(True, linestyle='--', alpha=0.6)
             plt.tight_layout()
@@ -336,8 +376,8 @@ def avaliar_modelo_teste(
 
             epocas = range(1, len(history['loss']) + 1)
             ultima_epoca = len(epocas)
-            # Época restaurada pelo EarlyStopping (restore_best_weights=True)
-            melhor_epoca = int(np.argmin(history['val_loss'])) + 1
+            # Época restaurada pelo EarlyStopping (restore_best_weights=True), que monitora o F1-Macro da validação
+            melhor_epoca = int(np.argmax(history['val_f1_macro'])) + 1
 
             plt.figure(figsize=(10, 6))
 
@@ -346,7 +386,7 @@ def avaliar_modelo_teste(
 
             plt.axvline(
                 x=melhor_epoca, color='green', linestyle='--',
-                label=f'Menor Loss na Validação (Época {melhor_epoca})'
+                label=f'Maior F1-Macro na Validação (Época {melhor_epoca})'
             )
             plt.axvline(
                 x=ultima_epoca, color='red', linestyle=':',
@@ -464,21 +504,13 @@ if __name__ == "__main__":
             print(f"\n[{model_to_create}] Na execução {exec+1}/{n_execucoes}")
             match(model_to_create):
                 case "lstm":
-                    # Configuração de Early Stopping para evitar
-                    # a passagem por todas as 100 épocas em todos
-                    # os treinamentos
-                    early_stopping = EarlyStopping(
-                        monitor="val_loss",
-                        patience=20,
-                        restore_best_weights=True
-                    )
-                    cleanup_cb = MemoryCleanupCallback()
+                    # Early Stopping pelo F1-Macro da validação (ver criar_callbacks_rede)
                     model = KerasClassifier(
                         model=create_lstm_model,
                         model__input_shape=input_shape,
                         model__num_classes=num_labels,
                         verbose=0,
-                        callbacks=[early_stopping, cleanup_cb]
+                        callbacks=criar_callbacks_rede(X_val, y_val_encoded)
                     )
                 case "kmeans":
                     model = criar_pipeline_kmeans()
@@ -487,19 +519,13 @@ if __name__ == "__main__":
                 case "xgboost":
                     model = criar_pipeline_xgboost(seed_exec)
                 case "tcn":
-                    early_stopping = EarlyStopping(
-                        monitor="val_loss",
-                        patience=20,
-                        restore_best_weights=True
-                    )
-                    cleanup_cb = MemoryCleanupCallback()
                     model = KerasClassifier(
                         model=create_tcn_model,
                         model__input_shape=input_shape,
                         model__num_classes=num_labels,
                         verbose=0,
-                        callbacks=[early_stopping, cleanup_cb]
-                    )    
+                        callbacks=criar_callbacks_rede(X_val, y_val_encoded)
+                    )
                 case _:
                     pass
 
