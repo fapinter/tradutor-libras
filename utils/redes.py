@@ -9,6 +9,7 @@ from tensorflow.keras.layers import (
     Add,
     Activation,
     GlobalAveragePooling1D,
+    Bidirectional,
 )
 from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.optimizers import Adam
@@ -63,6 +64,53 @@ def create_lstm_model(
         metrics=["accuracy"]
     )
     return model
+
+
+def create_bilstm_model(
+    input_shape, num_classes, lstm_units_1=128,
+    lstm_units_2=64, dense_units=64, dropout_rate=0.3, learning_rate=0.001
+):
+    """
+    Constrói e compila o modelo BiLSTM para classificação de gestos em Libras.
+    Processa as sequências de landmarks nos sentidos temporal direto e reverso.
+    """
+
+    tf.keras.backend.clear_session()
+
+    model = Sequential([
+        # Entrada: sequência de frames com 126 (mãos) ou 142 (Holistic) features por frame
+        Input(shape=input_shape),
+
+        # Primeira BiLSTM: aprende padrões temporais em ambas as direções
+        # return_sequences=True permite alimentar a segunda BiLSTM
+        Bidirectional(LSTM(units=lstm_units_1, return_sequences=True)),
+
+        # Regularização para reduzir overfitting
+        Dropout(dropout_rate),
+
+        # Segunda BiLSTM: consolida as informações temporais
+        # dos dois sentidos em uma representação da sequência completa
+        Bidirectional(LSTM(units=lstm_units_2, return_sequences=False)),
+
+        Dropout(dropout_rate),
+
+        # Combina as características temporais extraídas
+        Dense(units=dense_units, activation="relu"),
+
+        Dropout(dropout_rate),
+
+        # Classificação multiclasse dos gestos
+        Dense(units=num_classes, activation="softmax")
+    ])
+
+    model.compile(
+        optimizer=Adam(learning_rate=learning_rate),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"]
+    )
+
+    return model
+
 
 def tcn_residual_block(
     x,
@@ -279,6 +327,48 @@ def create_lstm_atencao_model(
         inputs=inputs,
         outputs=outputs,
         name="lstm_atencao_libras",
+    )
+    model.compile(
+        optimizer=Adam(learning_rate=learning_rate),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"]
+    )
+    return model
+
+
+def create_bilstm_atencao_model(
+    input_shape, num_classes, lstm_units_1=128,
+    lstm_units_2=64, dense_units=64, dropout_rate=0.3, learning_rate=0.001
+):
+    """
+        Constrói e compila o modelo BiLSTM com atenção aprendida nos frames.
+
+        Igual ao create_bilstm_model, mas a segunda BiLSTM retorna o estado de
+        todos os frames (direto e reverso concatenados, 2 * lstm_units_2 por frame),
+        resumidos pela AtencaoTemporal no lugar do último estado.
+    """
+    tf.keras.backend.clear_session()
+
+    inputs = Input(shape=input_shape)
+    # Primeira BiLSTM: aprende padrões temporais em ambas as direções
+    x = Bidirectional(LSTM(units=lstm_units_1, return_sequences=True))(inputs)
+    x = Dropout(dropout_rate)(x)
+    # Segunda BiLSTM, retorna a representação de cada frame
+    # para a atenção
+    x = Bidirectional(LSTM(units=lstm_units_2, return_sequences=True))(x)
+    x = Dropout(dropout_rate)(x)
+    # Resume a sequência pela média ponderada dos frames,
+    # com os pesos aprendidos pelo modelo
+    x = AtencaoTemporal(name="atencao_temporal")(x)
+    x = Dense(units=dense_units, activation="relu")(x)
+    x = Dropout(dropout_rate)(x)
+    # Classificação multiclasse dos gestos
+    outputs = Dense(units=num_classes, activation="softmax")(x)
+
+    model = Model(
+        inputs=inputs,
+        outputs=outputs,
+        name="bilstm_atencao_libras",
     )
     model.compile(
         optimizer=Adam(learning_rate=learning_rate),
