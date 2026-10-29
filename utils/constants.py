@@ -102,9 +102,9 @@ PARAM_GRID_LSTM = {
     "model__lstm_units_1": [64, 128],
     "model__lstm_units_2": [32, 64],
     "model__dense_units": [32, 64],
-    "model__dropout_rate": [0.2, 0.4],
-    "model__learning_rate": [0.001, 0.0005],
-    "batch_size": [16, 32],
+    "model__dropout_rate": [0.3, 0.4],
+    "model__learning_rate": [0.0005],
+    "batch_size": [32],
     "epochs": [100]
 }
 
@@ -125,8 +125,8 @@ PARAM_GRID_TCN = {
     "model__filters": [32, 64],
     "model__dense_units": [32, 64],
     "model__dropout_rate": [0.2, 0.4],
-    "model__learning_rate": [0.001, 0.0005],
-    "batch_size": [16, 32],
+    "model__learning_rate": [0.0005],
+    "batch_size": [32],
     "epochs": [100],
 }
 

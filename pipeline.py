@@ -187,7 +187,7 @@ def applyGridSearch(
     )
 
     if usa_validation_data:
-        n_jobs = 8
+        n_jobs =-1
     else:
         n_jobs = -1
 
@@ -202,7 +202,7 @@ def applyGridSearch(
     total_fits = len(list(ParameterGrid(params))) * 5
 
     # Barra de progresso do treinamento
-    with tqdm_joblib(tqdm(desc="Treinando GridSearchCV\n", total=total_fits)):
+    with tqdm_joblib(tqdm(desc="Treinando GridSearchCV", total=total_fits)):
         grid.fit(X_fit, y_fit, groups=groups)
     return grid.best_estimator_, grid.best_params_, grid.best_score_
 
@@ -412,9 +412,9 @@ if __name__ == "__main__":
 
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation, Número de Execuções
-        ('lstm:pose_aug', PARAM_GRID_LSTM, True, 4),
-        ('lstm:pose', PARAM_GRID_LSTM,  False, 4),
-        #('tcn:final_aug', PARAM_GRID_TCN,  True, 3),
+        ('lstm:pose_aug_f1', PARAM_GRID_LSTM, True, 4),
+        #('lstm:pose', PARAM_GRID_LSTM,  False, 4),
+        ('tcn:pose_aug_f1', PARAM_GRID_TCN,  True, 4),
         #('tcn:final', PARAM_GRID_TCN,  False, 3),
         #('rf:pose_aug', PARAM_GRID_RF,  True, 4),
         #('rf:pose', PARAM_GRID_RF,  False, 4),
