@@ -255,7 +255,6 @@ def treinar_modelo_final(model_used, best_params, X_fit, y_fit, melhores_epocas=
     model_final.fit(X_fit, y_fit)
     return model_final, epocas_final
 
-
 def avaliar_modelo_teste(
     model_name, model, best_params,
     label_encoder, X_test, y_test,
@@ -528,6 +527,20 @@ if __name__ == "__main__":
                         model__num_classes=num_labels,
                         verbose=0,
                         callbacks=criar_callbacks_rede(X_val, y_val_encoded)
+                    )
+                case "bilstm":
+                    early_stopping = EarlyStopping(
+                        monitor="val_loss",
+                        patience=10,
+                        restore_best_weights=True
+                    )
+                    cleanup_cb = MemoryCleanupCallback()
+                    model = KerasClassifier(
+                        model=create_bilstm_model,
+                        model__input_shape=input_shape,
+                        model__num_classes=num_labels,
+                        verbose=0,
+                        callbacks=[early_stopping, cleanup_cb]
                     )
                 case "kmeans":
                     model = criar_pipeline_kmeans()
