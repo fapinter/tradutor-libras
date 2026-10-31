@@ -51,15 +51,6 @@ DEFAULT_STEP = 5
 LANDMARKER_PATH = "utils/hand_landmarker.task"
 HOLISTIC_LANDMARKER_PATH = "utils/holistic_landmarker.task"
 
-# Constantes do recorte das mãos a partir do MediaPipe Pose (test_crop.py)
-POSE_LANDMARKER_PATH = "utils/pose_landmarker_full.task"
-# Lado do recorte quadrado de cada mão, em larguras de ombro
-CROP_ESCALA_OMBROS = 2.0
-# Distância máxima entre o pulso detectado e o pulso do Pose, em larguras de ombro
-DIST_MAX_PULSO_POSE = 0.6
-# Distância média entre landmarks abaixo da qual duas detecções são a mesma mão, em larguras de ombro
-DIST_MESMA_MAO_CROP = 0.1
-
 # Parâmetros de Data Augmentation
 AUG_NOISE_INTENSITY = 0.005
 
@@ -81,9 +72,14 @@ N_AUMENTOS = 10
 SEED = 42
 LSTM_EPOCHS = 100
 
-# Paciência do Early Stopping das redes (LSTM e TCN), que monitora o F1-Macro da validação:
-# o F1 continua subindo por ~30-40 épocas, enquanto a val_loss atinge o mínimo por volta da época 5
-EARLY_STOPPING_PATIENCE = 50
+# Paciência do Early Stopping das redes (LSTM e TCN), que monitora o F1-Macro da validação.
+# Com restore_best_weights=True, as épocas após o pico não mudam o resultado, apenas o tempo de treino
+EARLY_STOPPING_PATIENCE = 15
+
+# Épocas do treino final das redes com todos os intérpretes (sem validação nem Early Stopping).
+# No experimento dos pares de validação (docs/protocolo_validacao.md), o F1-Macro no teste do
+# TCN com atenção ficou estável entre 50 e 100 épocas e começou a cair depois de 100
+EPOCAS_TREINO_FINAL = 100
 
 K_FOLDS = 5
 
@@ -91,9 +87,12 @@ K_FOLDS = 5
 # 01-05 = intérprete 1, 06-10 = intérprete 2, ..., 36-40 = intérprete 8
 VIDEOS_POR_INTERPRETE = 5
 # Intérpretes separados para a validação (Early Stopping), sem augmentation.
-# O 8 tem as duas mãos visíveis na maior parte dos frames e o 5 deixa a mão de apoio solta,
-# como a maioria; o 7, o outro com as duas mãos visíveis, fica no treino.
-INTERPRETES_VALIDACAO = (5, 8)
+# No experimento dos 28 pares (docs/protocolo_validacao.md), o par 1, 6 teve a melhor época
+# mais estável entre os folds; pares com o 8 paravam o treino cedo demais.
+INTERPRETES_VALIDACAO = (1, 6)
+# Intérpretes de teste na avaliação apenas no MINDS (split_minds.py), fora da validação: o 8 é um
+# dos dois com as duas mãos visíveis (o 7 fica no treino) e o 5 deixa a mão de apoio solta, como a maioria
+INTERPRETES_TESTE_MINDS = (5, 8)
 EPOCHS_POR_FOLD = 50
 USAR_AUGMENTATION = True
 
@@ -157,17 +156,9 @@ FRAMES_TESTE_DIR = "dataset/frames/teste"
 DATASET_TREINO_CSV = "dataset/treino.csv"
 DATASET_TESTE_CSV = "dataset/teste.csv"
 
-DATASET_TREINO_MINDS_CSV = "dataset/treino_minds_70.csv"
-DATASET_TESTE_MINDS_CSV = "dataset/teste_minds_30.csv"
-
-DATASET_TREINO_15_CSV = "dataset/treino_15.csv"
-DATASET_TESTE_15_CSV = "dataset/teste_15.csv"
-
-DATASET_TREINO_MINDS_CROP_CSV = "dataset/treino_minds_crop_mediapipe_separado.csv"
-DATASET_TESTE_MINDS_CROP_CSV = "dataset/teste_minds_crop_mediapipe_separado.csv"
-
-DATASET_TREINO_HOLISTIC_CSV = "dataset/treino_holistic.csv"
-DATASET_TESTE_HOLISTIC_CSV = "dataset/teste_holistic.csv"
+# Avaliação apenas no MINDS (split_minds.py): treino separado por intérprete
+DATASET_TREINO_MINDS_CSV = "dataset/treino_minds.csv"
+DATASET_TESTE_MINDS_CSV = "dataset/teste_minds.csv"
 
 LOGS_DIR = "logs"
 MODELS_DIR = "models"
@@ -182,8 +173,6 @@ MATRIZ_PATH = "outputs/matriz_%s.png"
 RESULTS_PATH = "outputs/results_%s.txt"
 ACC_PATH = "outputs/acc_%s.png"
 LOSS_PATH = "outputs/loss_%s.png"
-# Predição de cada amostra do teste (colunas id, predicao, diagnostico)
-PREDICOES_PATH = "outputs/predicoes_%s.csv"
 
 # Métricas do melhor treino de cada modelo (f1-macro e acurácia, em %)
 BEST_PATH = "best/%s.txt"

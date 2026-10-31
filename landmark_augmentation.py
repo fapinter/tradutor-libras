@@ -305,7 +305,8 @@ TRANSFORMACOES = [_ruido, _escala, _rotacao_2d, _dropout_mao_sequencia, _dropout
 
 
 def gerar_amostras_aumentadas(
-    features, labels, grupos, n_aumentos=N_AUMENTOS, seed=SEED, transformacoes=TRANSFORMACOES
+    features, labels, grupos, n_aumentos=N_AUMENTOS, seed=SEED, transformacoes=TRANSFORMACOES,
+    retornar_origem=False,
 ):
     """
     Gera amostras augmentadas para o dataset inteiro.
@@ -313,6 +314,8 @@ def gerar_amostras_aumentadas(
     n_aumentos : augmentações por amostra original.
         Com n_aumentos=10: 1 espelhamento + 9 combinações = +10 → total 11×.
     transformacoes : transformações sorteadas nas combinações (o espelhamento é sempre gerado).
+    retornar_origem : também retorna o índice da amostra original de cada amostra gerada
+        (as originais apontam para si mesmas), para selecionar o augmentation de um subconjunto.
     """
     np.random.seed(seed)
 
@@ -321,6 +324,7 @@ def gerar_amostras_aumentadas(
     features_aug = list(features)
     labels_aug = list(labels)
     grupo_aug = list(grupos)
+    origem_aug = list(range(len(features)))
 
     originais_por_classe = {}
     for l in labels:
@@ -330,13 +334,14 @@ def gerar_amostras_aumentadas(
     print(f"Amostras originais: {len(features)}")
     print(f"Gerando {n_aumentos} variações por amostra...")
 
-    for amostra, label, grupo in zip(features, labels, grupos):
+    for idx, (amostra, label, grupo) in enumerate(zip(features, labels, grupos)):
 
         # Sempre gera uma amostra espelhada
         esp = augmentar_sequencia(amostra, [_espelhamento])
         features_aug.append(esp)
         labels_aug.append(label)
         grupo_aug.append(grupo)
+        origem_aug.append(idx)
 
         # 2. Combinações aleatórias das demais transformações
         for _ in range(n_aumentos - 1):
@@ -351,6 +356,7 @@ def gerar_amostras_aumentadas(
             features_aug.append(nova)
             labels_aug.append(label)
             grupo_aug.append(grupo)
+            origem_aug.append(idx)
 
     print(f"Amostras após augmentation: {len(features_aug)}")
     print(f"Aumento: {len(features_aug) / max(len(features), 1):.1f}×")
@@ -364,7 +370,10 @@ def gerar_amostras_aumentadas(
         orig = originais_por_classe.get(classe, 0)
         print(f"  {classe}: {orig} → {qtd} amostras")
 
-    return np.array(features_aug).astype(np.float32), np.array(labels_aug), np.array(grupo_aug)
+    resultado = (np.array(features_aug).astype(np.float32), np.array(labels_aug), np.array(grupo_aug))
+    if retornar_origem:
+        return resultado + (np.array(origem_aug),)
+    return resultado
 
 
 if __name__ == "__main__":
