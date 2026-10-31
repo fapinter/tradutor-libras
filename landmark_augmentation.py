@@ -3,15 +3,20 @@ landmark_augmentation.py
 ========================
 Data augmentation diretamente nos landmarks extraídos pelo MediaPipe.
 
-126 features: 2 mãos (21 landmarks × 3 coords × 2 mãos)
-    Ordem: [mão direita (0-62), mão esquerda (63-125)]
-    Mão ausente → bloco de zeros.
+Suporta os dois formatos de features do projeto:
+  - 126 features (extração antiga, HandLandmarker): [mão direita (0-62), mão esquerda (63-125)],
+    cada mão relativa ao próprio pulso.
+  - 142 features (extração com o Holistic): [mão direita (0-62), mão esquerda (63-125), pose (126-141)],
+    todos os pontos relativos ao corpo (origem no centro dos ombros); a pose tem apenas x e y.
+Mão ausente → bloco de zeros.
 
 Transformações:
   1. Ruído gaussiano  — simula tremor / imprecisão do sensor
   2. Escala           — simula distância diferente da câmera
   3. Rotação 2D       — simula ângulo de filmagem diferente (plano XY)
-  4. Espelhamento     — inverte X; para 2 mãos, também troca direita↔esquerda
+  4. Espelhamento     — inverte X; também troca direita↔esquerda (mãos e pares do Pose)
+  5. Dropout de mão (sequência) — remove a mão menos ativa em toda a sequência
+  6. Dropout de mão (frame)     — remove cada mão em frames aleatórios (AUG_DROPOUT_FRAME_PROB)
 
 Para sequências LSTM os parâmetros aleatórios são pré-gerados uma vez e
 aplicados a todos os frames, garantindo coerência temporal.
@@ -20,29 +25,44 @@ aplicados a todos os frames, garantindo coerência temporal.
 import numpy as np
 
 from utils.constants import (
+    AUG_DROPOUT_FRAME_PROB,
     AUG_NOISE_INTENSITY,
     AUG_ROTATION_MAX_DEGREES,
     AUG_SCALE_MAX,
     AUG_SCALE_MIN,
+    COORDINATES_PER_LANDMARK,
+    COORDINATES_PER_POSE_LANDMARK,
     N_AUMENTOS,
-    N_MAO,
+    NUM_FEATURES,
+    NUM_FEATURES_MAOS,
+    NUM_LANDMARKS_PER_HAND,
+    POSE_LANDMARKS_USADOS,
+    POSE_PARES_ESPELHO,
     SEED,
 )
 
+# Pontos de cada bloco do frame, com o frame no formato (n_pontos, 3)
+# (a pose, que tem apenas x e y, recebe um z nulo durante as transformações)
+MAO_D = slice(0, NUM_LANDMARKS_PER_HAND)
+MAO_E = slice(NUM_LANDMARKS_PER_HAND, 2 * NUM_LANDMARKS_PER_HAND)
+POSE = slice(2 * NUM_LANDMARKS_PER_HAND, 2 * NUM_LANDMARKS_PER_HAND + len(POSE_LANDMARKS_USADOS))
+
+
+def _ordem_pose_espelhada():
+    """Ordem dos pontos do Pose após o espelhamento: cada ponto troca de lugar com o seu par."""
+    par = {}
+    for a, b in POSE_PARES_ESPELHO:
+        par[a], par[b] = b, a
+    posicao = {lm: i for i, lm in enumerate(POSE_LANDMARKS_USADOS)}
+    return [posicao[par.get(lm, lm)] for lm in POSE_LANDMARKS_USADOS]
+
+
+ORDEM_POSE_ESPELHADA = _ordem_pose_espelhada()
+
 
 # Helpers das funções principais
-def _reshape(frame_mao):
-    """Lista plana (63,) → matriz (21, 3)."""
-    return np.array(frame_mao, dtype=np.float32).reshape(21, 3)
-
-
-def _flatten(pts):
-    """Matriz (21, 3) → lista plana (63,)."""
-    return pts.flatten().tolist()
-
-
 def _eh_ausente(pts):
-    """True se a mão está ausente (bloco de zeros)."""
+    """True se o bloco (mão ou pose) está ausente (bloco de zeros)."""
     return np.all(np.abs(pts) < 1e-9)
 
 
@@ -73,6 +93,37 @@ def _espelhamento(pts):
     return pts
 
 
+# Dropouts de mão: aplicados na sequência inteira (ver _aplicar_dropouts), depois das demais
+# transformações. Só o bloco da mão é zerado (mão não detectada); o Pose é mantido, como
+# acontece nos dados reais, em que o Holistic perde a mão mas continua detectando o corpo.
+
+def _dropout_mao_sequencia(sequencia):
+    """
+    Remove (zera) a mão menos ativa em todos os frames da sequência: a de menor variação das
+    coordenadas nos frames em que aparece. Nos sinais feitos com uma mão é a mão em repouso,
+    então o modelo aprende a não depender da mão não dominante. Sequências com apenas uma
+    mão não são alteradas.
+    """
+    atividade = []
+    for bloco in (MAO_D, MAO_E):
+        mao = sequencia[:, bloco]
+        presentes = ~np.all(np.abs(mao) < 1e-9, axis=(1, 2))
+        if not presentes.any():
+            return sequencia
+        atividade.append(mao[presentes].std(axis=0).mean())
+    sequencia[:, (MAO_D, MAO_E)[int(np.argmin(atividade))]] = 0.0
+    return sequencia
+
+
+def _dropout_mao_frames(sequencia, mascara):
+    """Remove (zera) cada mão nos frames marcados em mascara (n_frames, 2), simulando falhas de detecção."""
+    sequencia[mascara[:, 0], MAO_D] = 0.0
+    sequencia[mascara[:, 1], MAO_E] = 0.0
+    return sequencia
+
+
+DROPOUTS = (_dropout_mao_sequencia, _dropout_mao_frames)
+
 
 # Wrapper para aplicar as transformações
 def _aplicar(
@@ -83,7 +134,8 @@ def _aplicar(
     sin_a=None
 ):
     """
-    Aplica transformação t a uma mão (21, 3).
+    Aplica transformação t a um bloco de pontos (n, 3), em torno da origem
+    (pulso no formato de 126 features, centro dos ombros no formato do Holistic).
     Se os parâmetros pré-fixados forem fornecidos, usa-os (modo sequência LSTM).
     Caso contrário, sorteia na hora (modo frame isolado).
     """
@@ -112,7 +164,7 @@ def _aplicar(
         return nova
     
     elif t == _espelhamento:
-        # Espelhamento chamado aqui só em contexto de mão única
+        # Espelhamento chamado aqui só em contexto de bloco único
         return _espelhamento(pts.copy())
     else:
         return t(pts)
@@ -126,50 +178,64 @@ def _aplicar(
 def _processar_frame(
     frame_arr,
     transformacoes,
-    ruido_a=None,
-    ruido_b=None,
+    ruido=None,
     escala_fator=None,
     cos_a=None,
     sin_a=None,
 ):
     """
-    Aplica transformações a um frame.
+    Aplica transformações a um frame (126 ou 142 features).
 
     Espelhamento:
-      1. Inverte X de ambas as mãos
+      1. Inverte X de todos os pontos
       2. Troca direita↔esquerda — porque a imagem espelhada tem as mãos invertidas
+         (no Pose, cada ponto também troca de lugar com o seu par do outro lado do corpo)
 
-    Para mãos ausentes (bloco de zeros) nenhuma transformação é aplicada,
+    Para blocos ausentes (bloco de zeros) nenhuma transformação é aplicada,
     preservando os zeros que indicam "mão não detectada".
+    No formato de 126 features as mãos são recentralizadas no pulso ao final.
     """
+    tem_pose = len(frame_arr) == NUM_FEATURES
+    if not tem_pose and len(frame_arr) != NUM_FEATURES_MAOS:
+        raise ValueError(
+            f"Frame com {len(frame_arr)} features; esperado {NUM_FEATURES_MAOS} ou {NUM_FEATURES}"
+        )
 
-    mao_d = _reshape(frame_arr[:N_MAO])
-    mao_e = _reshape(frame_arr[N_MAO:])
-
-    tem_d = not _eh_ausente(mao_d)
-    tem_e = not _eh_ausente(mao_e)
+    frame_arr = np.asarray(frame_arr, dtype=np.float32)
+    pts = frame_arr[:NUM_FEATURES_MAOS].reshape(-1, COORDINATES_PER_LANDMARK)
+    if tem_pose:
+        pose = frame_arr[NUM_FEATURES_MAOS:].reshape(-1, COORDINATES_PER_POSE_LANDMARK)
+        pose = np.pad(pose, ((0, 0), (0, COORDINATES_PER_LANDMARK - COORDINATES_PER_POSE_LANDMARK)))
+        pts = np.concatenate([pts, pose])
+    blocos = [MAO_D, MAO_E] + ([POSE] if tem_pose else [])
+    presentes = [b for b in blocos if not _eh_ausente(pts[b])]
 
     # Separar espelhamento das demais (requer lógica de troca)
     espelhar = _espelhamento in transformacoes
     outras = [t for t in transformacoes if t != _espelhamento]
 
     for t in outras:
-        if tem_d:
-            mao_d = _aplicar(mao_d, t, ruido_a, escala_fator, cos_a, sin_a)
-        if tem_e:
-            mao_e = _aplicar(mao_e, t, ruido_b, escala_fator, cos_a, sin_a)
+        for b in presentes:
+            pts[b] = _aplicar(
+                pts[b], t, ruido[b] if ruido is not None else None,
+                escala_fator, cos_a, sin_a
+            )
 
     if espelhar:
-        nd = _espelhamento(mao_d.copy()) if tem_d else mao_d
-        ne = _espelhamento(mao_e.copy()) if tem_e else mao_e
-        mao_d, mao_e = ne, nd  # troca: o que era direita vira esquerda
+        for b in presentes:
+            pts[b] = _espelhamento(pts[b].copy())
+        # troca: o que era direita vira esquerda
+        pts[MAO_D], pts[MAO_E] = pts[MAO_E].copy(), pts[MAO_D].copy()
+        if tem_pose:
+            pts[POSE] = pts[POSE][ORDEM_POSE_ESPELHADA]
 
-    if tem_d:
-        mao_d = mao_d - mao_d[0]
-    if tem_e:
-        mao_e = mao_e - mao_e[0]
+    if not tem_pose:
+        for b in (MAO_D, MAO_E):
+            if not _eh_ausente(pts[b]):
+                pts[b] = pts[b] - pts[b][0]
+        return pts.flatten().tolist()
 
-    return _flatten(mao_d) + _flatten(mao_e)
+    return pts[:POSE.start].flatten().tolist() + pts[POSE, :COORDINATES_PER_POSE_LANDMARK].flatten().tolist()
 
 
 # ---------------------------------------------------------------------------
@@ -192,47 +258,73 @@ def augmentar_sequencia(sequencia, transformacoes):
     )
     cos_a, sin_a = np.cos(ang), np.sin(ang)
 
-    ruido_d = np.random.normal(
+    n_pontos = MAO_E.stop + (POSE.stop - POSE.start if len(sequencia[0]) == NUM_FEATURES else 0)
+    ruido = np.random.normal(
         0, AUG_NOISE_INTENSITY,
-        (n, 21, 3)
-    ).astype(np.float32)
-    
-    ruido_e = np.random.normal(
-        0, AUG_NOISE_INTENSITY,
-        (n, 21, 3)
+        (n, n_pontos, COORDINATES_PER_LANDMARK)
     ).astype(np.float32)
 
+    # Máscara do dropout por frame sorteada apenas quando usada, para não alterar
+    # os sorteios das demais transformações
+    mascara = None
+    if _dropout_mao_frames in transformacoes:
+        mascara = np.random.random((n, 2)) < AUG_DROPOUT_FRAME_PROB
+
+    geometricas = [t for t in transformacoes if t not in DROPOUTS]
     resultado = []
     for fi, frame in enumerate(sequencia):
         arr = np.array(frame, dtype=np.float32)
         r = _processar_frame(
             arr,
-            transformacoes,
-            ruido_a=ruido_d[fi],
-            ruido_b=ruido_e[fi],
+            geometricas,
+            ruido=ruido[fi],
             escala_fator=escala_fator,
             cos_a=cos_a,
             sin_a=sin_a,
         )
         resultado.append(r)
 
+    if any(t in DROPOUTS for t in transformacoes):
+        resultado = _aplicar_dropouts(resultado, transformacoes, mascara)
     return resultado
 
 
-def gerar_amostras_aumentadas(features, labels, grupos, n_aumentos=N_AUMENTOS, seed=SEED):
+def _aplicar_dropouts(resultado, transformacoes, mascara):
+    """Aplica os dropouts de mão escolhidos à sequência já transformada (lista de frames)."""
+    seq = np.array(resultado, dtype=np.float32)
+    pts = seq[:, :NUM_FEATURES_MAOS].reshape(len(seq), -1, COORDINATES_PER_LANDMARK)
+    if _dropout_mao_sequencia in transformacoes:
+        pts = _dropout_mao_sequencia(pts)
+    if _dropout_mao_frames in transformacoes:
+        pts = _dropout_mao_frames(pts, mascara)
+    seq[:, :NUM_FEATURES_MAOS] = pts.reshape(len(seq), -1)
+    return seq.tolist()
+
+
+TRANSFORMACOES = [_ruido, _escala, _rotacao_2d, _dropout_mao_sequencia, _dropout_mao_frames]
+
+
+def gerar_amostras_aumentadas(
+    features, labels, grupos, n_aumentos=N_AUMENTOS, seed=SEED, transformacoes=TRANSFORMACOES,
+    retornar_origem=False,
+):
     """
     Gera amostras augmentadas para o dataset inteiro.
-    Suporta 63 e 126 features automaticamente.
+    Suporta 126 (apenas mãos) e 142 (Holistic) features automaticamente.
     n_aumentos : augmentações por amostra original.
-        Com n_aumentos=5: 1 espelhamento + 4 combinações = +5 → total 6×.
+        Com n_aumentos=10: 1 espelhamento + 9 combinações = +10 → total 11×.
+    transformacoes : transformações sorteadas nas combinações (o espelhamento é sempre gerado).
+    retornar_origem : também retorna o índice da amostra original de cada amostra gerada
+        (as originais apontam para si mesmas), para selecionar o augmentation de um subconjunto.
     """
     np.random.seed(seed)
 
-    transformacoes_disponiveis = [_ruido, _escala, _rotacao_2d]
+    transformacoes_disponiveis = list(transformacoes)
 
     features_aug = list(features)
     labels_aug = list(labels)
     grupo_aug = list(grupos)
+    origem_aug = list(range(len(features)))
 
     originais_por_classe = {}
     for l in labels:
@@ -242,13 +334,14 @@ def gerar_amostras_aumentadas(features, labels, grupos, n_aumentos=N_AUMENTOS, s
     print(f"Amostras originais: {len(features)}")
     print(f"Gerando {n_aumentos} variações por amostra...")
 
-    for amostra, label, grupo in zip(features, labels, grupos):
+    for idx, (amostra, label, grupo) in enumerate(zip(features, labels, grupos)):
 
         # Sempre gera uma amostra espelhada
         esp = augmentar_sequencia(amostra, [_espelhamento])
         features_aug.append(esp)
         labels_aug.append(label)
         grupo_aug.append(grupo)
+        origem_aug.append(idx)
 
         # 2. Combinações aleatórias das demais transformações
         for _ in range(n_aumentos - 1):
@@ -263,6 +356,7 @@ def gerar_amostras_aumentadas(features, labels, grupos, n_aumentos=N_AUMENTOS, s
             features_aug.append(nova)
             labels_aug.append(label)
             grupo_aug.append(grupo)
+            origem_aug.append(idx)
 
     print(f"Amostras após augmentation: {len(features_aug)}")
     print(f"Aumento: {len(features_aug) / max(len(features), 1):.1f}×")
@@ -276,7 +370,10 @@ def gerar_amostras_aumentadas(features, labels, grupos, n_aumentos=N_AUMENTOS, s
         orig = originais_por_classe.get(classe, 0)
         print(f"  {classe}: {orig} → {qtd} amostras")
 
-    return np.array(features_aug).astype(np.float32), np.array(labels_aug), np.array(grupo_aug)
+    resultado = (np.array(features_aug).astype(np.float32), np.array(labels_aug), np.array(grupo_aug))
+    if retornar_origem:
+        return resultado + (np.array(origem_aug),)
+    return resultado
 
 
 if __name__ == "__main__":

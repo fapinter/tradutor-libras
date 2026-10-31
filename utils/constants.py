@@ -4,11 +4,34 @@ NUM_LANDMARKS_PER_HAND = 21
 COORDINATES_PER_LANDMARK = 3
 NUM_HANDS = 2
 N_MAO = 63
-NUM_FEATURES = 126
+# Features apenas das mãos (extração antiga, HandLandmarker): [mão direita] + [mão esquerda]
+NUM_FEATURES_MAOS = 126
+
+# Landmarks do Pose usados na extração com o Holistic (índice do MediaPipe -> nome da coluna no CSV):
+# braços e tronco, sem os pontos do rosto (0-10) e sem os dedos estimados pelo Pose (17-22),
+# já cobertos pelas mãos completas. Esquerda e direita são da pessoa.
+POSE_LANDMARKS_USADOS = {
+    11: "ombro_esquerdo", 12: "ombro_direito",
+    13: "cotovelo_esquerdo", 14: "cotovelo_direito",
+    15: "pulso_esquerdo", 16: "pulso_direito",
+    23: "quadril_esquerdo", 24: "quadril_direito",
+}
+# Do Pose são usados apenas x e y: o z estimado pelo MediaPipe Pose é exagerado e instável
+COORDINATES_PER_POSE_LANDMARK = 2
+N_POSE = len(POSE_LANDMARKS_USADOS) * COORDINATES_PER_POSE_LANDMARK
+# Features da extração com o Holistic: [mão direita (63)] + [mão esquerda (63)] + [pose (16)]
+NUM_FEATURES = NUM_FEATURES_MAOS + N_POSE
+
+# Índices do Pose (MediaPipe) usados na normalização relativa ao corpo
+POSE_OMBRO_ESQUERDO = 11
+POSE_OMBRO_DIREITO = 12
+# Pares esquerda/direita do Pose, trocados no espelhamento do Data Augmentation
+POSE_PARES_ESPELHO = ((11, 12), (13, 14), (15, 16), (23, 24))
 
 # Vetor de mão ausente
 ZEROS_MAO = [0.0] * N_MAO
-# Vetor de features ausente (nenhuma mão detectada)
+# Vetores de features ausentes (frame sem detecção ou padding)
+ZEROS_FRAME_MAOS = [0.0] * NUM_FEATURES_MAOS
 ZEROS_FRAME = [0.0] * NUM_FEATURES
 
 
@@ -26,39 +49,7 @@ SEQUENCE_LENGTH = 15
 DEFAULT_STEP = 5
 
 LANDMARKER_PATH = "utils/hand_landmarker.task"
-
-# Constantes do recorte das mãos a partir do MediaPipe Pose (test_crop.py)
-POSE_LANDMARKER_PATH = "utils/pose_landmarker_full.task"
-# Lado do recorte quadrado de cada mão, em larguras de ombro
-CROP_ESCALA_OMBROS = 2.0
-# Distância máxima entre o pulso detectado e o pulso do Pose, em larguras de ombro
-DIST_MAX_PULSO_POSE = 0.6
-# Distância média entre landmarks abaixo da qual duas detecções são a mesma mão, em larguras de ombro
-DIST_MESMA_MAO_CROP = 0.1
-
-# Constantes do YOLO (detecção de landmarks das mãos)
-# Modelo YOLO-Pose treinado no dataset hand-keypoints da Ultralytics
-# (21 keypoints na mesma ordem do MediaPipe)
-YOLO_HAND_MODEL_PATH = "utils/yolo_hand_pose.pt"
-YOLO_DATASET_YAML = "utils/hand-keypoints.yaml"
-# Pesos pré-treinados (COCO-Pose) usados como ponto de partida do treinamento
-YOLO_MODELO_BASE = "yolo26n-pose.pt"
-YOLO_CONFIANCA = 0.5
-# Confiança mínima dos keypoints usados na normalização (pulso, base indicador, base mínimo)
-YOLO_CONFIANCA_KPT = 0.5
-# Distância média máxima (coordenadas normalizadas) para considerar duas detecções a mesma mão
-DIST_MAX_MESMA_MAO = 0.15
-
-# Constantes do YOLO (pose das pessoas, usada para localizar as mãos no test_crop.py)
-# Os pesos pré-treinados já são treinados no COCO-Pose (17 keypoints do corpo), sem necessidade de treino
-YOLO_PERSON_MODEL_PATH = YOLO_MODELO_BASE
-# Índices dos keypoints do COCO-Pose (lado da pessoa, como no MediaPipe Pose)
-YOLO_POSE_OMBROS = (6, 5)  # ombro direito, ombro esquerdo
-YOLO_POSE_COTOVELOS = {"Right": 8, "Left": 7}
-YOLO_POSE_PULSOS = {"Right": 10, "Left": 9}
-# O COCO-Pose não tem pontos dos dedos: a ponta da mão é estimada prolongando o antebraço
-# (cotovelo -> pulso) a partir do pulso, nesta fração do comprimento do antebraço
-YOLO_POSE_COMPRIMENTO_MAO = 0.75
+HOLISTIC_LANDMARKER_PATH = "utils/holistic_landmarker.task"
 
 # Parâmetros de Data Augmentation
 AUG_NOISE_INTENSITY = 0.005
@@ -70,22 +61,38 @@ AUG_SCALE_MAX = 1.15
 # Rotação máxima
 AUG_ROTATION_MAX_DEGREES = 15.0
 
+# Probabilidade de cada mão ser removida em cada frame no dropout de mão por frame
+# (simula as falhas de detecção das mãos pelo Holistic)
+AUG_DROPOUT_FRAME_PROB = 0.15
+
 # Número de amostras geradas pelo Data Augmentation
-N_AUMENTOS = 5
+N_AUMENTOS = 10
 
 # Configurações dos Treinamentos
 SEED = 42
 LSTM_EPOCHS = 100
 
-# Paciencia Early Stopping (avaliar qual ficará)
-LSTM_PATIENCE = 10
-PIPELINE_PATIENCE = 8
+# Paciência do Early Stopping das redes (LSTM e TCN), que monitora o F1-Macro da validação.
+# Com restore_best_weights=True, as épocas após o pico não mudam o resultado, apenas o tempo de treino
+EARLY_STOPPING_PATIENCE = 15
+
+# Épocas do treino final das redes com todos os intérpretes (sem validação nem Early Stopping).
+# No experimento dos pares de validação (docs/protocolo_validacao.md), o F1-Macro no teste do
+# TCN com atenção ficou estável entre 50 e 100 épocas e começou a cair depois de 100
+EPOCAS_TREINO_FINAL = 100
 
 K_FOLDS = 5
 
 # Os vídeos de treino (MINDS) estão em blocos de 5 repetições por intérprete:
 # 01-05 = intérprete 1, 06-10 = intérprete 2, ..., 36-40 = intérprete 8
 VIDEOS_POR_INTERPRETE = 5
+# Intérpretes separados para a validação (Early Stopping), sem augmentation.
+# No experimento dos 28 pares (docs/protocolo_validacao.md), o par 1, 6 teve a melhor época
+# mais estável entre os folds; pares com o 8 paravam o treino cedo demais.
+INTERPRETES_VALIDACAO = (1, 6)
+# Intérpretes de teste na avaliação apenas no MINDS (split_minds.py), fora da validação: o 8 é um
+# dos dois com as duas mãos visíveis (o 7 fica no treino) e o 5 deixa a mão de apoio solta, como a maioria
+INTERPRETES_TESTE_MINDS = (5, 8)
 EPOCHS_POR_FOLD = 50
 USAR_AUGMENTATION = True
 
@@ -94,9 +101,9 @@ PARAM_GRID_LSTM = {
     "model__lstm_units_1": [64, 128],
     "model__lstm_units_2": [32, 64],
     "model__dense_units": [32, 64],
-    "model__dropout_rate": [0.2, 0.4],
-    "model__learning_rate": [0.001, 0.0005],
-    "batch_size": [16, 32],
+    "model__dropout_rate": [0.3, 0.4],
+    "model__learning_rate": [0.0005, 0.001],
+    "batch_size": [32],
     "epochs": [100]
 }
 
@@ -117,8 +124,8 @@ PARAM_GRID_TCN = {
     "model__filters": [32, 64],
     "model__dense_units": [32, 64],
     "model__dropout_rate": [0.2, 0.4],
-    "model__learning_rate": [0.001, 0.0005],
-    "batch_size": [16, 32],
+    "model__learning_rate": [0.0005],
+    "batch_size": [32],
     "epochs": [100],
 }
 
@@ -149,14 +156,9 @@ FRAMES_TESTE_DIR = "dataset/frames/teste"
 DATASET_TREINO_CSV = "dataset/treino.csv"
 DATASET_TESTE_CSV = "dataset/teste.csv"
 
-DATASET_TREINO_MINDS_CSV = "dataset/treino_minds_70.csv"
-DATASET_TESTE_MINDS_CSV = "dataset/teste_minds_30.csv"
-
-DATASET_TREINO_15_CSV = "dataset/treino_15.csv"
-DATASET_TESTE_15_CSV = "dataset/teste_15.csv"
-
-DATASET_TREINO_MINDS_CROP_CSV = "dataset/treino_minds_crop_mediapipe_separado.csv"
-DATASET_TESTE_MINDS_CROP_CSV = "dataset/teste_minds_crop_mediapipe_separado.csv"
+# Avaliação apenas no MINDS (split_minds.py): treino separado por intérprete
+DATASET_TREINO_MINDS_CSV = "dataset/treino_minds.csv"
+DATASET_TESTE_MINDS_CSV = "dataset/teste_minds.csv"
 
 LOGS_DIR = "logs"
 MODELS_DIR = "models"
@@ -171,8 +173,6 @@ MATRIZ_PATH = "outputs/matriz_%s.png"
 RESULTS_PATH = "outputs/results_%s.txt"
 ACC_PATH = "outputs/acc_%s.png"
 LOSS_PATH = "outputs/loss_%s.png"
-# Predição de cada amostra do teste (colunas id, predicao, diagnostico)
-PREDICOES_PATH = "outputs/predicoes_%s.csv"
 
 # Métricas do melhor treino de cada modelo (f1-macro e acurácia, em %)
 BEST_PATH = "best/%s.txt"

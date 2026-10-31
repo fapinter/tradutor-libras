@@ -1,0 +1,36 @@
+Total de Amostras de Teste: 342
+Acurácia no Teste: 69.30%
+F1-Score Macro:             67.90%
+Total de Amostras de Validação: 636 (intérpretes 5, 8)
+Acurácia na Validação: 89.62%
+F1-Score Macro na Validação: 87.81%
+F1-Score Macro médio na validação cruzada do GridSearch: 87.17%
+Tempo total de Treino: 137.5728 minutos | 2.2929 horas
+Época parada: 100
+Hiperparametros do lstm_pose_aug_f1: dict_items([('batch_size', 32), ('epochs', 100), ('model__dense_units', 64), ('model__dropout_rate', 0.3), ('model__learning_rate', 0.0005), ('model__lstm_units_1', 64), ('model__lstm_units_2', 64)])
+Relatório de Classificação por Classe:
+              precision    recall  f1-score   support
+
+   acontecer       0.26      1.00      0.41        10
+       aluno       0.87      0.76      0.81        17
+     amarelo       0.92      0.69      0.79        16
+     america       0.62      0.83      0.71        18
+  aproveitar       0.75      0.69      0.72        13
+        bala       0.77      0.83      0.80        24
+       banco       0.65      0.89      0.76        19
+    banheiro       0.64      0.56      0.60        16
+     barulho       0.92      0.83      0.87        29
+    conhecer       1.00      0.29      0.44        14
+     espelho       1.00      0.67      0.80        18
+     esquina       0.90      0.50      0.64        18
+       filho       0.77      0.67      0.71        15
+        maca       0.68      0.62      0.65        21
+        medo       0.40      0.29      0.33        14
+        ruim       0.60      0.64      0.62        14
+        sapo       0.60      0.75      0.67        24
+      vacina       0.93      0.68      0.79        19
+     vontade       0.81      0.74      0.77        23
+
+    accuracy                           0.69       342
+   macro avg       0.74      0.68      0.68       342
+weighted avg       0.76      0.69      0.70       342
