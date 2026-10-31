@@ -1,2 +1,0 @@
-f1-macro:38.82
-acuracia:43.01
