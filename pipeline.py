@@ -191,7 +191,7 @@ def applyGridSearch(
     )
 
     if usa_validation_data:
-        n_jobs =-1
+        n_jobs =7
     else:
         n_jobs = -1
 
@@ -415,12 +415,12 @@ if __name__ == "__main__":
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation, Número de Execuções
         # Modelos com atenção temporal aprendida (sufixo _at)
-        ('lstm_at:att', PARAM_GRID_LSTM, False, 4),
+        #('bilstm_at:att_aug', PARAM_GRID_LSTM, True, 4),
+        #('bilstm_at:att', PARAM_GRID_LSTM, False, 4),
         ('lstm_at:att_aug', PARAM_GRID_LSTM, True, 4),
-        ('bilstm_at:att', PARAM_GRID_LSTM, False, 4),
-        ('bilstm_at:att_aug', PARAM_GRID_LSTM, True, 4),
-        ('tcn_at:att', PARAM_GRID_TCN, False, 3),
-        ('tcn_at:att_aug', PARAM_GRID_TCN, True, 3),
+        ('lstm_at:att', PARAM_GRID_LSTM, False, 4),
+        #('tcn_at:att_aug', PARAM_GRID_TCN, True, 4),
+        #('tcn_at:att', PARAM_GRID_TCN, False, 4),
         #('lstm:final', PARAM_GRID_LSTM,  False, 4),
         #('lstm:final_aug', PARAM_GRID_LSTM, True, 4),
         #('bilstm:final', PARAM_GRID_LSTM, False, 4),

@@ -103,7 +103,7 @@ PARAM_GRID_LSTM = {
     "model__lstm_units_2": [32, 64],
     "model__dense_units": [32, 64],
     "model__dropout_rate": [0.3, 0.4],
-    "model__learning_rate": [0.0005],
+    "model__learning_rate": [0.0005, 0.001],
     "batch_size": [32],
     "epochs": [100]
 }
