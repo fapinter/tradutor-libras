@@ -209,14 +209,17 @@ def applyGridSearch(
         scoring = {scoring_method: scoring_method}
 
     cv = LeaveOneGroupOut()
-
+    if usa_validation_data:
+        n_jobs = 7
+    else:
+        n_jobs = -1
     grid = GridSearchCV(
         estimator=model_used,
         param_grid=params,
         cv=cv,
         scoring=scoring,
         refit=False,
-        n_jobs=-1,
+        n_jobs=n_jobs,
         verbose=1
     )
     n_folds = cv.get_n_splits(groups=groups)
@@ -383,7 +386,7 @@ if __name__ == "__main__":
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation, Número de Execuções
         # Modelos com atenção temporal aprendida (sufixo _at)
-        ('bilstm_at:final_aug', PARAM_GRID_LSTM, True, 4),
+        #('bilstm_at:final_aug', PARAM_GRID_LSTM, True, 4),
         ('bilstm_at:final', PARAM_GRID_LSTM, False, 4),
         ('lstm_at:final_aug', PARAM_GRID_LSTM, True, 4),
         ('lstm_at:final', PARAM_GRID_LSTM, False, 4),
