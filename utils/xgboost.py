@@ -30,6 +30,7 @@ def criar_pipeline_xgboost(random_state=None):
             eval_metric="mlogloss",
             tree_method="hist",
             colsample_bytree=0.5,
+            subsample=0.6,
             max_bin=64,
             random_state=random_state,
             n_jobs=1,
@@ -43,6 +44,7 @@ def criar_pipeline_rf(random_state=None):
         ("rf", RandomForestClassifier(
             max_depth=None, 
             class_weight="balanced", 
-            random_state=random_state
+            random_state=random_state,
+
         )),
     ])

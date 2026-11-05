@@ -1,0 +1,34 @@
+Total de Amostras de Teste: 342
+Acurácia no Teste: 55.26%
+F1-Score Macro:             57.02%
+F1-Score Macro médio na validação cruzada do GridSearch: 88.80%
+Tempo total de Treino: 38.2828 minutos | 0.6380 horas
+Melhor época de cada fold (Early Stopping na validação, intérpretes 1, 6): [29, 41, 26, 19, 21, 33]
+Épocas do treino final (fixas, todos os intérpretes): 100
+Hiperparametros do lstm_at_final: dict_items([('batch_size', 32), ('epochs', 100), ('model__dense_units', 32), ('model__dropout_rate', 0.3), ('model__learning_rate', 0.001), ('model__lstm_units_1', 128), ('model__lstm_units_2', 64)])
+Relatório de Classificação por Classe:
+              precision    recall  f1-score   support
+
+   acontecer       0.88      0.70      0.78        10
+       aluno       0.80      0.47      0.59        17
+     amarelo       0.71      0.62      0.67        16
+     america       0.90      1.00      0.95        18
+  aproveitar       0.40      0.46      0.43        13
+        bala       0.82      0.75      0.78        24
+       banco       0.93      0.74      0.82        19
+    banheiro       0.18      0.94      0.30        16
+     barulho       0.88      0.48      0.62        29
+    conhecer       0.19      0.21      0.20        14
+     espelho       1.00      0.44      0.62        18
+     esquina       0.55      0.61      0.58        18
+       filho       0.80      0.27      0.40        15
+        maca       0.83      0.48      0.61        21
+        medo       0.38      0.36      0.37        14
+        ruim       1.00      0.43      0.60        14
+        sapo       0.56      0.58      0.57        24
+      vacina       0.47      0.47      0.47        19
+     vontade       0.60      0.39      0.47        23
+
+    accuracy                           0.55       342
+   macro avg       0.68      0.55      0.57       342
+weighted avg       0.69      0.55      0.58       342

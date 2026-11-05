@@ -386,26 +386,26 @@ if __name__ == "__main__":
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation, Número de Execuções
         # Modelos com atenção temporal aprendida (sufixo _at)
-        #('bilstm_at:final_aug', PARAM_GRID_LSTM, True, 4),
-        ('bilstm_at:final', PARAM_GRID_LSTM, False, 4),
-        ('lstm_at:final_aug', PARAM_GRID_LSTM, True, 4),
-        ('lstm_at:final', PARAM_GRID_LSTM, False, 4),
-        ('tcn_at:final_aug', PARAM_GRID_TCN, True, 4),
-        ('tcn_at:final', PARAM_GRID_TCN, False, 4),
-        #('rf:pose_aug', PARAM_GRID_RF,  True, 4),
-        #('rf:pose', PARAM_GRID_RF,  False, 4),
-        #('kmeans:final_aug', PARAM_GRID_KMEANS, True, 4),
-        #('kmeans:final', PARAM_GRID_KMEANS, False, 4),
-        #('xgboost:final_aug', PARAM_GRID_XGBOOST, True, 4),
-        #('xgboost:final', PARAM_GRID_XGBOOST, False, 4),
+        ('bilstm_at:final_aug', PARAM_GRID_LSTM, True, 1),
+        ('bilstm_at:final', PARAM_GRID_LSTM, False, 1),
+        ('lstm_at:final_aug', PARAM_GRID_LSTM, True, 1),
+        ('lstm_at:final', PARAM_GRID_LSTM, False, 1),
+        ('tcn_at:final_aug', PARAM_GRID_TCN, True, 1),
+        ('tcn_at:final', PARAM_GRID_TCN, False, 1),
+        ('rf:final_aug', PARAM_GRID_RF,  True, 1),
+        ('rf:final', PARAM_GRID_RF,  False, 1),
+        ('kmeans:final_aug', PARAM_GRID_KMEANS, True, 1),
+        ('kmeans:final', PARAM_GRID_KMEANS, False, 1),
+        ('xgboost:final_aug', PARAM_GRID_XGBOOST, True, 1),
+        ('xgboost:final', PARAM_GRID_XGBOOST, False, 1),
 
     ]
     has_network = False
     has_classifier = False
     for model_name, _, _, _ in models:
-        if model_name.startswith('lstm') or model_name.startswith('bilstm') or model_name.startswith('tcn'):
+        if model_name.startswith(('lstm', 'bilstm', 'tcn')):
             has_network = True
-        elif model_name.startswith('kmeans') or model_name.startswith('xgboost') or model_name.startswith('rf'):
+        elif model_name.startswith(('kmeans', 'xgboost', 'rf')):
             has_classifier = True
 
         if has_network and has_classifier:
