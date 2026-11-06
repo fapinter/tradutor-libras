@@ -1,30 +1,32 @@
-Total de Amostras de Teste: 508
-Acur·cia no Teste: 59.06%
-F1-Score Macro:             56.68%
-Tempo total de Treino: 20.2737 minutos | 0.3379 horasHiperparametros do kmeans_minds_aug: dict_items([('compactar__n_clusters', 70), ('rf__max_depth', 30), ('rf__n_estimators', 300)])
-RelatÛrio de ClassificaÁ„o por Classe:
+Total de Amostras de Teste: 636
+Acur√°cia no Teste: 56.60%
+F1-Score Macro:             53.26%
+F1-Score Macro m√©dio na valida√ß√£o cruzada do GridSearch: 58.03%
+Tempo total de Treino: 98.9162 minutos | 1.6486 horas
+Hiperparametros do kmeans_minds_aug: dict_items([('compactar__n_clusters', 70), ('rf__max_depth', None), ('rf__n_estimators', 200)])
+Relat√≥rio de Classifica√ß√£o por Classe:
               precision    recall  f1-score   support
 
-   acontecer       0.78      0.82      0.80        22
-       aluno       0.74      0.57      0.64        30
-     amarelo       0.57      0.50      0.53        34
-     america       0.88      1.00      0.94        29
-  aproveitar       0.56      0.64      0.60        14
-        bala       0.39      0.24      0.30        29
-       banco       0.54      0.50      0.52        26
-    banheiro       0.58      0.30      0.40        23
-     barulho       0.53      0.56      0.55        32
-    conhecer       0.44      0.44      0.44        25
-     espelho       0.70      0.77      0.73        30
-     esquina       0.71      0.86      0.78        29
-       filho       0.43      0.36      0.39        25
-        maca       0.37      0.37      0.37        27
-        medo       0.16      0.15      0.15        20
-        ruim       0.84      0.96      0.90        27
-        sapo       0.83      0.91      0.87        33
-      vacina       0.41      0.28      0.33        25
-     vontade       0.41      0.75      0.53        28
+   acontecer       0.50      0.17      0.25        24
+       aluno       0.33      0.20      0.25        45
+     amarelo       0.68      0.52      0.59        33
+     america       0.69      0.97      0.80        38
+  aproveitar       1.00      0.17      0.29        18
+        bala       0.44      0.50      0.47        36
+       banco       0.45      0.47      0.46        30
+    banheiro       0.69      0.71      0.70        35
+     barulho       0.74      0.89      0.81        38
+    conhecer       0.42      0.82      0.56        33
+     espelho       0.88      1.00      0.94        37
+     esquina       0.89      0.92      0.90        36
+       filho       0.29      0.29      0.29        31
+        maca       0.74      0.76      0.75        34
+        medo       0.38      0.38      0.38        29
+        ruim       0.65      0.38      0.48        34
+        sapo       0.56      0.45      0.50        40
+      vacina       0.26      0.33      0.30        27
+     vontade       0.39      0.42      0.41        38
 
-    accuracy                           0.59       508
-   macro avg       0.57      0.58      0.57       508
-weighted avg       0.58      0.59      0.58       508
+    accuracy                           0.57       636
+   macro avg       0.58      0.54      0.53       636
+weighted avg       0.57      0.57      0.55       636

@@ -94,6 +94,8 @@ from utils.constants import (
     PARAM_GRID_XGBOOST,
     DATASET_TREINO_CSV,
     DATASET_TESTE_CSV,
+    DATASET_TREINO_MINDS_CSV,
+    DATASET_TESTE_MINDS_CSV
 )
 
 
@@ -386,18 +388,18 @@ if __name__ == "__main__":
     models = [
         # Modelo, Hiperparametros, Path binário, Usar Augmentation, Número de Execuções
         # Modelos com atenção temporal aprendida (sufixo _at)
-        ('bilstm_at:final_aug', PARAM_GRID_LSTM, True, 1),
-        ('bilstm_at:final', PARAM_GRID_LSTM, False, 1),
-        ('lstm_at:final_aug', PARAM_GRID_LSTM, True, 1),
-        ('lstm_at:final', PARAM_GRID_LSTM, False, 1),
-        ('tcn_at:final_aug', PARAM_GRID_TCN, True, 1),
-        ('tcn_at:final', PARAM_GRID_TCN, False, 1),
-        ('rf:final_aug', PARAM_GRID_RF,  True, 1),
-        ('rf:final', PARAM_GRID_RF,  False, 1),
-        ('kmeans:final_aug', PARAM_GRID_KMEANS, True, 1),
-        ('kmeans:final', PARAM_GRID_KMEANS, False, 1),
-        ('xgboost:final_aug', PARAM_GRID_XGBOOST, True, 1),
-        ('xgboost:final', PARAM_GRID_XGBOOST, False, 1),
+        ('bilstm_at:minds_aug', PARAM_GRID_LSTM, True, 4),
+        ('bilstm_at:minds', PARAM_GRID_LSTM, False, 4),
+        ('lstm_at:minds_aug', PARAM_GRID_LSTM, True, 4),
+        ('lstm_at:minds', PARAM_GRID_LSTM, False, 4),
+        ('tcn_at:minds_aug', PARAM_GRID_TCN, True, 4),
+        ('tcn_at:minds', PARAM_GRID_TCN, False, 4),
+        ('rf:minds_aug', PARAM_GRID_RF,  True, 4),
+        ('rf:minds', PARAM_GRID_RF,  False, 4),
+        ('kmeans:minds_aug', PARAM_GRID_KMEANS, True, 4),
+        ('kmeans:minds', PARAM_GRID_KMEANS, False, 4),
+        ('xgboost:minds_aug', PARAM_GRID_XGBOOST, True, 4),
+        ('xgboost:minds', PARAM_GRID_XGBOOST, False, 4),
 
     ]
     has_network = False

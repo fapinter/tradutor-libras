@@ -1,0 +1,32 @@
+Total de Amostras de Teste: 636
+Acurácia no Teste: 86.48%
+F1-Score Macro:             84.55%
+F1-Score Macro médio na validação cruzada do GridSearch: 80.60%
+Tempo total de Treino: 2.2518 minutos | 0.0375 horas
+Hiperparametros do rf_minds: dict_items([('rf__max_depth', 20), ('rf__n_estimators', 400)])
+Relatório de Classificação por Classe:
+              precision    recall  f1-score   support
+
+   acontecer       0.62      1.00      0.76        24
+       aluno       0.97      0.73      0.84        45
+     amarelo       1.00      0.88      0.94        33
+     america       0.90      0.97      0.94        38
+  aproveitar       0.33      0.22      0.27        18
+        bala       0.77      0.92      0.84        36
+       banco       1.00      0.93      0.97        30
+    banheiro       0.69      0.31      0.43        35
+     barulho       0.95      0.95      0.95        38
+    conhecer       0.97      1.00      0.99        33
+     espelho       1.00      1.00      1.00        37
+     esquina       0.90      0.78      0.84        36
+       filho       0.90      0.87      0.89        31
+        maca       1.00      0.97      0.99        34
+        medo       0.81      1.00      0.89        29
+        ruim       0.94      0.94      0.94        34
+        sapo       0.60      0.88      0.71        40
+      vacina       0.96      0.96      0.96        27
+     vontade       0.97      0.92      0.95        38
+
+    accuracy                           0.86       636
+   macro avg       0.86      0.85      0.85       636
+weighted avg       0.87      0.86      0.86       636
