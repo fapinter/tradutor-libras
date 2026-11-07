@@ -19,8 +19,7 @@ kmeans) salvo pelo `pipeline.py`, por exemplo `models/tcn_at_final.keras`. O res
 
 Teclas: **ESPAÇO** inicia um gesto, **R** cancela, **Q** ou **ESC** saem.
 
-O script recusa modelos cujo número de features por frame não seja `NUM_FEATURES` (142), como os modelos antigos só
-com as mãos (126).
+O script recusa modelos cujo número de features por frame não seja `NUM_FEATURES` (142).
 
 ## Por que o gesto é gravado explicitamente
 

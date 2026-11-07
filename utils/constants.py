@@ -4,8 +4,8 @@ NUM_LANDMARKS_PER_HAND = 21
 COORDINATES_PER_LANDMARK = 3
 NUM_HANDS = 2
 N_MAO = 63
-# Features apenas das mãos (extração antiga, HandLandmarker): [mão direita] + [mão esquerda]
-NUM_FEATURES_MAOS = 126
+# Features das duas mãos, no início de cada frame: [mão direita] + [mão esquerda]
+NUM_FEATURES_MAOS = 2 * N_MAO
 
 # Landmarks do Pose usados na extração com o Holistic (índice do MediaPipe -> nome da coluna no CSV):
 # braços e tronco, sem os pontos do rosto (0-10) e sem os dedos estimados pelo Pose (17-22),
@@ -30,8 +30,7 @@ POSE_PARES_ESPELHO = ((11, 12), (13, 14), (15, 16), (23, 24))
 
 # Vetor de mão ausente
 ZEROS_MAO = [0.0] * N_MAO
-# Vetores de features ausentes (frame sem detecção ou padding)
-ZEROS_FRAME_MAOS = [0.0] * NUM_FEATURES_MAOS
+# Vetor de features ausentes (frame sem detecção ou padding)
 ZEROS_FRAME = [0.0] * NUM_FEATURES
 
 

@@ -3,11 +3,9 @@ landmark_augmentation.py
 ========================
 Data augmentation diretamente nos landmarks extraídos pelo MediaPipe.
 
-Suporta os dois formatos de features do projeto:
-  - 126 features (extração antiga, HandLandmarker): [mão direita (0-62), mão esquerda (63-125)],
-    cada mão relativa ao próprio pulso.
-  - 142 features (extração com o Holistic): [mão direita (0-62), mão esquerda (63-125), pose (126-141)],
-    todos os pontos relativos ao corpo (origem no centro dos ombros); a pose tem apenas x e y.
+Formato dos frames (NUM_FEATURES = 142, extração com o Holistic):
+[mão direita (0-62), mão esquerda (63-125), pose (126-141)], todos os pontos relativos ao corpo
+(origem no centro dos ombros); a pose tem apenas x e y.
 Mão ausente → bloco de zeros.
 
 Transformações:
@@ -39,6 +37,7 @@ from utils.constants import (
     POSE_LANDMARKS_USADOS,
     POSE_PARES_ESPELHO,
     SEED,
+    SEQUENCE_LENGTH,
 )
 
 # Pontos de cada bloco do frame, com o frame no formato (n_pontos, 3)
@@ -135,7 +134,7 @@ def _aplicar(
 ):
     """
     Aplica transformação t a um bloco de pontos (n, 3), em torno da origem
-    (pulso no formato de 126 features, centro dos ombros no formato do Holistic).
+    (centro dos ombros).
     Se os parâmetros pré-fixados forem fornecidos, usa-os (modo sequência LSTM).
     Caso contrário, sorteia na hora (modo frame isolado).
     """
@@ -184,7 +183,7 @@ def _processar_frame(
     sin_a=None,
 ):
     """
-    Aplica transformações a um frame (126 ou 142 features).
+    Aplica transformações a um frame (NUM_FEATURES features).
 
     Espelhamento:
       1. Inverte X de todos os pontos
@@ -193,21 +192,16 @@ def _processar_frame(
 
     Para blocos ausentes (bloco de zeros) nenhuma transformação é aplicada,
     preservando os zeros que indicam "mão não detectada".
-    No formato de 126 features as mãos são recentralizadas no pulso ao final.
     """
-    tem_pose = len(frame_arr) == NUM_FEATURES
-    if not tem_pose and len(frame_arr) != NUM_FEATURES_MAOS:
-        raise ValueError(
-            f"Frame com {len(frame_arr)} features; esperado {NUM_FEATURES_MAOS} ou {NUM_FEATURES}"
-        )
+    if len(frame_arr) != NUM_FEATURES:
+        raise ValueError(f"Frame com {len(frame_arr)} features; esperado {NUM_FEATURES}")
 
     frame_arr = np.asarray(frame_arr, dtype=np.float32)
     pts = frame_arr[:NUM_FEATURES_MAOS].reshape(-1, COORDINATES_PER_LANDMARK)
-    if tem_pose:
-        pose = frame_arr[NUM_FEATURES_MAOS:].reshape(-1, COORDINATES_PER_POSE_LANDMARK)
-        pose = np.pad(pose, ((0, 0), (0, COORDINATES_PER_LANDMARK - COORDINATES_PER_POSE_LANDMARK)))
-        pts = np.concatenate([pts, pose])
-    blocos = [MAO_D, MAO_E] + ([POSE] if tem_pose else [])
+    pose = frame_arr[NUM_FEATURES_MAOS:].reshape(-1, COORDINATES_PER_POSE_LANDMARK)
+    pose = np.pad(pose, ((0, 0), (0, COORDINATES_PER_LANDMARK - COORDINATES_PER_POSE_LANDMARK)))
+    pts = np.concatenate([pts, pose])
+    blocos = [MAO_D, MAO_E, POSE]
     presentes = [b for b in blocos if not _eh_ausente(pts[b])]
 
     # Separar espelhamento das demais (requer lógica de troca)
@@ -226,14 +220,7 @@ def _processar_frame(
             pts[b] = _espelhamento(pts[b].copy())
         # troca: o que era direita vira esquerda
         pts[MAO_D], pts[MAO_E] = pts[MAO_E].copy(), pts[MAO_D].copy()
-        if tem_pose:
-            pts[POSE] = pts[POSE][ORDEM_POSE_ESPELHADA]
-
-    if not tem_pose:
-        for b in (MAO_D, MAO_E):
-            if not _eh_ausente(pts[b]):
-                pts[b] = pts[b] - pts[b][0]
-        return pts.flatten().tolist()
+        pts[POSE] = pts[POSE][ORDEM_POSE_ESPELHADA]
 
     return pts[:POSE.start].flatten().tolist() + pts[POSE, :COORDINATES_PER_POSE_LANDMARK].flatten().tolist()
 
@@ -258,7 +245,7 @@ def augmentar_sequencia(sequencia, transformacoes):
     )
     cos_a, sin_a = np.cos(ang), np.sin(ang)
 
-    n_pontos = MAO_E.stop + (POSE.stop - POSE.start if len(sequencia[0]) == NUM_FEATURES else 0)
+    n_pontos = POSE.stop
     ruido = np.random.normal(
         0, AUG_NOISE_INTENSITY,
         (n, n_pontos, COORDINATES_PER_LANDMARK)
@@ -310,7 +297,7 @@ def gerar_amostras_aumentadas(
 ):
     """
     Gera amostras augmentadas para o dataset inteiro.
-    Suporta 126 (apenas mãos) e 142 (Holistic) features automaticamente.
+    Espera sequências de frames com NUM_FEATURES (142) features.
     n_aumentos : augmentações por amostra original.
         Com n_aumentos=10: 1 espelhamento + 9 combinações = +10 → total 11×.
     transformacoes : transformações sorteadas nas combinações (o espelhamento é sempre gerado).
@@ -377,11 +364,11 @@ def gerar_amostras_aumentadas(
 
 
 if __name__ == "__main__":
-    print("\n=== Teste: seq T=20, 126 features ===")
-    f_lstm2 = [np.random.randn(20, 126).tolist() for _ in range(4)]
+    print(f"\n=== Teste: seq T={SEQUENCE_LENGTH}, {NUM_FEATURES} features ===")
+    f_lstm2 = [np.random.randn(SEQUENCE_LENGTH, NUM_FEATURES).tolist() for _ in range(4)]
     l_lstm = ["oi"] * 2 + ["tchau"] * 2
     grupos = [1] * 4
     print(np.array(f_lstm2).shape)
     f_aug, l_aug, grupos_aug = gerar_amostras_aumentadas(f_lstm2, l_lstm, grupos=grupos, n_aumentos=10)
-    assert len(f_aug[0]) == 20 and len(f_aug[0][0]) == 126
+    assert len(f_aug[0]) == SEQUENCE_LENGTH and len(f_aug[0][0]) == NUM_FEATURES
     print("OK")

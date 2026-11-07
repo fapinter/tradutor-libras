@@ -78,7 +78,7 @@ def create_bilstm_model(
     tf.keras.backend.clear_session()
 
     model = Sequential([
-        # Entrada: sequência de frames com 126 (mãos) ou 142 (Holistic) features por frame
+        # Entrada: sequência de frames com 142 (Holistic) features por frame
         Input(shape=input_shape),
 
         # Primeira BiLSTM: aprende padrões temporais em ambas as direções
@@ -154,7 +154,7 @@ def tcn_residual_block(
     x = Dropout(dropout_rate)(x)
 
     # Ajusta a quantidade de canais do residual caso necessário.
-    # A entrada possui 126 (mãos) ou 142 (Holistic) features, enquanto a TCN pode utilizar
+    # A entrada possui 142 (Holistic) features, enquanto a TCN pode utilizar
     # 32 ou 64 filtros.
     if residual.shape[-1] != filters:
         residual = Conv1D(
@@ -182,11 +182,9 @@ def create_tcn_model(
     das sequências de landmarks do MediaPipe.
 
     Entrada:
-        (frames, features): 126 features (apenas mãos) ou 142 (Holistic)
+        (frames, features): 142 features (Holistic)
 
     Exemplo:
-        (15, 126)
-        ou
         (15, 142)
     """
 

@@ -6,10 +6,10 @@ gerando amostras sintéticas para gerar uma maior variação nos dados
 
 ## O que são os landmarks
 
-O MediaPipe retorna 21 pontos de referência para cada mão detectada, cada um com três coordenadas (x, y, z). Após a normalização pelo pulso, cada frame é representado por um vetor de **63 valores** (21 × 3).
+O MediaPipe retorna 21 pontos de referência para cada mão detectada, cada um com três coordenadas (x, y, z), ou seja, **63 valores** por mão (21 × 3).
 
 ```
-Landmark 0  → pulso (origem após normalização: 0, 0, 0)
+Landmark 0  → pulso (referência do z de cada mão)
 Landmarks 1–4  → polegar
 Landmarks 5–8  → indicador
 Landmarks 9–12 → médio
@@ -17,14 +17,14 @@ Landmarks 13–16 → anelar
 Landmarks 17–20 → mínimo
 ```
 
-### Formato da extração com o Holistic
+### Formato dos frames
 
 Na extração com o MediaPipe Holistic (`feature_extraction.py`), cada frame tem **142 valores**: mão direita (63) + mão esquerda (63) + pose (ombros, cotovelos, pulsos e quadris: 8 pontos, apenas x e y = 16). Todos os pontos são relativos ao corpo: a origem é o centro dos ombros e a unidade é a largura dos ombros (o z das mãos é relativo ao próprio pulso). Por isso:
 
-- a origem das transformações de escala e rotação passa a ser o centro dos ombros (e não o pulso), e as mãos **não** são recentralizadas no pulso depois das transformações, pois isso apagaria a posição delas em relação ao corpo;
+- a origem das transformações de escala e rotação é o centro dos ombros, e as mãos **não** são recentralizadas no pulso depois das transformações, pois isso apagaria a posição delas em relação ao corpo;
 - no espelhamento, além da troca entre mão direita e esquerda, cada ponto do Pose troca de lugar com o seu par do outro lado do corpo (ombros, cotovelos, pulsos e quadris).
 
-O módulo identifica o formato pelo número de features do frame (126 ou 142).
+O módulo exige frames com `NUM_FEATURES` (142) features e recusa qualquer outro tamanho.
 
 ## Transformações feitas
 
@@ -37,14 +37,14 @@ Adiciona uma perturbação aleatória pequena a cada coordenada, seguindo uma di
 
 ### 2. Escala
 
-Multiplica todos os landmarks por um fator aleatório entre 0.85 e 1.15, mantendo a origem no mesmo lugar (o pulso no formato de 126 features e o centro dos ombros no do Holistic).
+Multiplica todos os landmarks por um fator aleatório entre 0.85 e 1.15, mantendo a origem (o centro dos ombros) no mesmo lugar.
 
 **O que simula:** a pessoa ou a mão filmada mais perto ou mais longe da câmera. Como os pontos já são normalizados em relação à origem, escalar em torno dela é geometricamente correto — os pontos se afastam ou se aproximam da origem proporcionalmente, como na vida real.
 
 
 ### 3. Rotação 2D
 
-Rotaciona todos os landmarks no plano XY em torno da origem (pulso ou centro dos ombros, conforme o formato), com um ângulo aleatório entre -15° e +15°. O eixo Z não é rotacionado para não distorcer artificialmente a informação de profundidade.
+Rotaciona todos os landmarks no plano XY em torno da origem (o centro dos ombros), com um ângulo aleatório entre -15° e +15°. O eixo Z não é rotacionado para não distorcer artificialmente a informação de profundidade.
 
 **O que simula:** a mão ou o corpo levemente inclinado para a esquerda ou direita, ou um ângulo ligeiramente diferente de filmagem.
 
