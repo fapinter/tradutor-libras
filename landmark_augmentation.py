@@ -247,8 +247,8 @@ def augmentar_sequencia(sequencia, transformacoes):
     Aplica as mesmas transformações em TODOS os frames da sequência LSTM.
 
     Parâmetros aleatórios pré-gerados uma vez para toda a sequência,
-    garantindo coerência temporal: o ângulo de rotação é o mesmo nos
-    20 frames, evitando criar movimentos artificiais.
+    garantindo coerência temporal: o ângulo de rotação é o mesmo em
+    todos os frames da sequência, evitando criar movimentos artificiais.
     """
     n = len(sequencia)
 

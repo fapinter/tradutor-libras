@@ -138,9 +138,42 @@ PARAM_GRID_XGBOOST = {
 # Captura de Vídeo em Tempo Real
 
 FONTE = 0
-FRAME_SKIP = 20
+# Largura da janela do teste ao vivo em pixels (a janela também pode ser redimensionada com o mouse)
+LARGURA_JANELA = 1280
 MIN_CONFIANCA = 0.4
 ALTA_CONFIANCA = 0.6
+
+# Os frames de treino foram extraídos de 1 em FRAME_RATE frames dos vídeos (assumidos a 30 fps),
+# então o ao vivo amostra a câmera nessa mesma taxa para a velocidade do gesto ser a do treino
+VIDEO_FPS_TREINO = 30
+AMOSTRAS_POR_SEGUNDO = VIDEO_FPS_TREINO / FRAME_RATE
+
+# Gravação do gesto (tecla ESPAÇO)
+CONTAGEM_REGRESSIVA_S = 3.0
+# Tempo máximo esperando o usuário começar o gesto depois da contagem
+GESTO_INICIO_TIMEOUT_S = 5.0
+# Tempo com as mãos paradas (ou fora da imagem) para considerar o gesto finalizado.
+# Gestos que seguram a posição por menos que isso não são cortados
+GESTO_TEMPO_PARADO_S = 1.2
+GESTO_DURACAO_MAX_S = 6.0
+# Movimento das mãos: diferença média por feature entre duas amostras (em larguras de ombro),
+# calculada só nas mãos detectadas nas duas amostras
+LIMIAR_MOVIMENTO = 0.02
+# Movimento dos braços: deslocamento de cotovelos e pulsos do Pose entre duas amostras (em larguras de ombro).
+# Não depende da detecção das mãos, que falha mais com pouca luz ou longe da câmera
+LIMIAR_MOVIMENTO_BRACOS = 0.06
+# O limiar de movimento é calibrado pelo ruído do Pose medido durante a contagem regressiva (usuário parado):
+# limiar = RUIDO_FATOR x percentil 90 do movimento parado, entre 1.0 e LIMIAR_MOVIMENTO_MAX (em unidades dos limiares acima).
+# Com pouca luz ou longe da câmera o ruído sobe e, sem isso, o gesto nunca seria dado como finalizado
+RUIDO_FATOR = 1.5
+LIMIAR_MOVIMENTO_MAX = 4.0
+# Só as amostras da contagem a partir deste instante entram na calibração (o usuário ainda está se posicionando antes)
+CALIBRACAO_INICIO_S = 1.0
+# Amostras seguidas em movimento para o gesto ser considerado iniciado
+GESTO_AMOSTRAS_INICIO = 2
+# Amostras de repouso mantidas antes e depois do movimento (o treino tem repouso nas pontas dos vídeos)
+GESTO_MARGEM_AMOSTRAS = 2
+GESTO_MIN_AMOSTRAS = 4
 
 CONFIDENCE_THRESHOLD = 0.5
 

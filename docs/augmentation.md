@@ -37,16 +37,16 @@ Adiciona uma perturbação aleatória pequena a cada coordenada, seguindo uma di
 
 ### 2. Escala
 
-Multiplica todos os landmarks por um fator aleatório entre 0.85 e 1.15, mantendo a origem (pulso) no mesmo lugar.
+Multiplica todos os landmarks por um fator aleatório entre 0.85 e 1.15, mantendo a origem no mesmo lugar (o pulso no formato de 126 features e o centro dos ombros no do Holistic).
 
-**O que simula:** a mão filmada mais perto ou mais longe da câmera. Como já normalizamos pelo pulso, escalar em torno da origem é geometricamente correto — os dedos se afastam ou se aproximam do pulso proporcionalmente, como na vida real.
+**O que simula:** a pessoa ou a mão filmada mais perto ou mais longe da câmera. Como os pontos já são normalizados em relação à origem, escalar em torno dela é geometricamente correto — os pontos se afastam ou se aproximam da origem proporcionalmente, como na vida real.
 
 
 ### 3. Rotação 2D
 
-Rotaciona todos os landmarks no plano XY em torno da origem (pulso), com um ângulo aleatório entre -15° e +15°. O eixo Z não é rotacionado para não distorcer artificialmente a informação de profundidade.
+Rotaciona todos os landmarks no plano XY em torno da origem (pulso ou centro dos ombros, conforme o formato), com um ângulo aleatório entre -15° e +15°. O eixo Z não é rotacionado para não distorcer artificialmente a informação de profundidade.
 
-**O que simula:** o pulso levemente inclinado para a esquerda ou direita, ou um ângulo ligeiramente diferente de filmagem.
+**O que simula:** a mão ou o corpo levemente inclinado para a esquerda ou direita, ou um ângulo ligeiramente diferente de filmagem.
 
 
 ### 4. Espelhamento Horizontal
@@ -92,24 +92,28 @@ Com `n_aumentos=10` (`N_AUMENTOS`), cada amostra original gera 10 variações (1
 
 | Cenário | Amostras originais | Após augmentation (n=10) |
 |---|---|---|
-| Treino Holistic sem a validação (7 intérpretes) | ~1990 sequências | ~21900 sequências |
+| Treino completo (8 intérpretes) | 2397 sequências | 26367 sequências |
+| Treino reduzido, sem a validação (6 intérpretes) | 1918 sequências | 21098 sequências |
 
 ## Como o Data Augmentation é aplicado
-Após a separação dos dados de treino em Treino/Validação,
-os dados retornados de treino passam pelo processo de Data Augmentation,
-o qual é usado para o treino do modelo caso a opção de utilizar
-`usar_augmentation` no pipeline seja verdadeira.
-
+O Data Augmentation é aplicado **uma única vez**, na cópia do treino completo (todos os intérpretes), antes da
+separação da validação. A validação é separada dos dados originais e **nunca** tem augmentation. O treino reduzido
+com augmentation é selecionado do treino completo com augmentation pelo índice da amostra original de cada amostra
+gerada (`retornar_origem=True`), sem gerar um segundo augmentation. O modelo só usa as versões com augmentation
+quando o `usar_augmentation` do modelo, no `pipeline.py`, é verdadeiro (ver `docs/protocolo_validacao.md`).
 
 ```
 Leitura dos dados de treinamento via CSV.
       ↓
-Separação de Dados de Treinamento e Dados de Validação
+Cópia do treino + Augmentation (uma vez) → treino completo com augmentation
       ↓
-Augmentation nos Dados de Treinamento
+Separação da validação nos dados originais (sem augmentation) → índices do treino reduzido
       ↓
-Treinamento do modelo
+Treino reduzido com augmentation: amostras geradas a partir das amostras do treino reduzido
+      ↓
+GridSearch no treino reduzido; treino final no treino completo
 ```
+
 ## Transformações planejadas
 
 Levantadas após a análise do dataset do Holistic, em que a principal diferença entre treino (MINDS) e teste é a mão

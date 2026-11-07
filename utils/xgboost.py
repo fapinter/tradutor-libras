@@ -9,7 +9,7 @@ class SequenciaParaVetor(BaseEstimator, TransformerMixin):
     Converte cada sequência temporal em um único vetor.
 
     Exemplo:
-    (20 frames, 126 features) -> 2520 features
+    (15 frames, 142 features) -> 2130 features
 
     Mantém a posição de cada feature de cada frame,
     permitindo o uso da sequência pelo XGBoost em formato 2D.

@@ -135,7 +135,7 @@ def _salvar_log_treino(
     log_path = RESULTADOS_TREINO_CSV
     cabecalho = [
         'data_hora', 'modelo', 'acuracia_%', 'f1_macro_%',
-        'amostras_treino', 'augmentation', 'n_aumentos', 'tempo_min', 'epoca_parada', 'hiperparametros'
+        'amostras_treino', 'augmentation', 'n_aumentos', 'epoca_parada', 'tempo_min', 'hiperparametros'
     ]
     novo_arquivo = not os.path.exists(log_path)
     with open(log_path, 'a', newline='', encoding='utf-8') as f:
